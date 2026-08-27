@@ -1,0 +1,7 @@
+{
+  "name": "eventhub",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ]
+}
