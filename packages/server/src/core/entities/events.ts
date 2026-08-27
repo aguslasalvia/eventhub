@@ -1,6 +1,6 @@
 import { EventState } from "@eventhub/shared";
 
-export default class Events {
+export default class Event {
   /* 
    note:
    location can be null, because an event may be announced but it can not have a place/location determinated
@@ -75,6 +75,22 @@ export default class Events {
   //#endregion
 
   //#region class-functions
+
+  /* note: this method it's for retrieving the row data from the database */
+  static fromRow(row: any): Event {
+    return new Event(
+      row.id,
+      row.title,
+      row.description,
+      row.location,
+      row.date ? new Date(row.date) : null,
+      row.maxCapacity,
+      row.organizerId,
+      row.status as EventState,
+    );
+  }
+
+
   public confirmDateAndLocation(date: Date, location: string): void {
     if (date < new Date())
       throw new Error("The date cannot be in the past");
@@ -106,6 +122,9 @@ export default class Events {
     }
     this._status = EventState.Draft;
   }
+
+
+
 
   //#endregion
 
