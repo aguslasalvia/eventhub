@@ -21,9 +21,10 @@ export default class Event {
     description: string,
     location: string | null = null,
     date: Date | null = null,
-    capacity: number,
+    capacity: number | null,
     organizerId: number,
     state: EventState = EventState.Draft) {
+
     if (capacity !== null && capacity <= 0) {
       throw new Error("Capacity must be greater than zero");
     }
@@ -39,6 +40,7 @@ export default class Event {
 
 
   //#region getters
+
   public get Id(): number | null {
     return this._id
   }
@@ -76,7 +78,15 @@ export default class Event {
 
   //#region class-functions
 
-  /* note: this method it's for retrieving the row data from the database */
+
+
+
+  /** 
+  * note: this method it's for retrieving the row data from the database 
+  * simple: database obj -> Event object
+  * @param row -> database row
+  * @returns -> Event obj based on the database result
+  */
   static fromRow(row: any): Event {
     return new Event(
       row.id,
@@ -91,6 +101,11 @@ export default class Event {
   }
 
 
+  /**
+   * Set a new date and location for an event before save it in the DB
+   * @param date -> date to set
+   * @param location -> location to set
+   */
   public confirmDateAndLocation(date: Date, location: string): void {
     if (date < new Date())
       throw new Error("The date cannot be in the past");
@@ -99,6 +114,11 @@ export default class Event {
     this._location = location;
   }
 
+  /**
+   * Update the current event's description
+   * @param description 
+   * @throws Error if the new description is empty
+   */
   public updateDescription(description: string) {
     if (description.trim().length === 0)
       throw new Error("The description cannot be empty");
@@ -106,6 +126,11 @@ export default class Event {
     this._description = description;
   }
 
+  /**
+   * Simply updates the status of the event
+   * @throws Error if the event is already published
+   * @throws Error if the event doesn't have a date and location to be publish
+   */
   public publish(): void {
     if (this._status === EventState.Published) {
       throw new Error("The event is already published");
@@ -116,14 +141,16 @@ export default class Event {
     this._status = EventState.Published;
   }
 
+  /**
+ * Simply updates the status of the event to draft
+ * @throws Error if the event is already a draft
+ */
   public unpublish(): void {
     if (this._status === EventState.Draft) {
       throw new Error("The event is already a draft");
     }
     this._status = EventState.Draft;
   }
-
-
 
 
   //#endregion
