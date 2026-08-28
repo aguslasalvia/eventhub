@@ -1,41 +1,43 @@
 import EventService from "@services/event.services";
 import type { Request, Response } from "express";
+import { foundResponse } from "@utils/find-reponse";
+
 
 export default class EventController {
 
-  static async create(req: Request, res: Response) {
+  static async create(req: Request, res: Response): Promise<Response> {
     const { title, description, location, date, maxCapacity, category, status, organizerId } = req.body;
 
     try {
       const event = await EventService.create(title, description, maxCapacity, organizerId, location, date, category);
-      res.send(201).json(event);
+      return res.send(201).json(event);
     }
     catch (err) {
-      res.status(400).json({ "error": (err as Error).message })
+      return res.status(400).json({ "error": (err as Error).message })
     }
   }
 
-  static async findAll(req: Request, res: Response) {
+  static async findAll(req: Request, res: Response): Promise<Response> {
     try {
       const events = await EventService.findAll();
-      res.status(200).json(events);
+      return res.status(200).json(events);
 
     } catch (err) {
-      res.status(500).json({ error: (err as Error).message })
+      return res.status(500).json({ error: (err as Error).message })
     }
   }
 
 
-  static async findPublished(req: Request, res: Response) {
+  static async findPublished(req: Request, res: Response): Promise<Response> {
     try {
       const published = await EventService.findPublished();
-      res.status(200).json(published);
+      return foundResponse(res,published,"No Event Found")
     } catch (err) {
-      res.status(500).json({ error: (err as Error).message });
+      return res.status(500).json({ error: (err as Error).message });
     }
   }
 
-  static async publish(req: Request, res: Response) {
+  static async publish(req: Request, res: Response): Promise<Response> {
     const { id } = req.params;
 
     if (isNaN(Number(id))) {
@@ -43,14 +45,16 @@ export default class EventController {
     }
 
     try {
+
       const event = await EventService.publish(Number(id));
-      res.status(200).json(event);
+      return foundResponse(res, event, "Event Not Found");
+
     } catch (err) {
-      res.status(400).json({ error: (err as Error).message });
+      return res.status(400).json({ error: (err as Error).message });
     }
   }
 
-  static async cancel(req: Request, res: Response) {
+  static async cancel(req: Request, res: Response): Promise<Response> {
     const { id } = req.params;
 
     if (isNaN(Number(id))) {
@@ -59,14 +63,14 @@ export default class EventController {
 
     try {
       const event = await EventService.cancel(Number(id));
-      return res.status(200).json(event);
+      return foundResponse(res, event, "Event Not Found")
     } catch (err) {
       return res.status(400).json({ error: (err as Error).message });
     }
   }
 
 
-  static async delete(req: Request, res: Response) {
+  static async delete(req: Request, res: Response): Promise<Response> {
     const { id } = req.params
 
     if (isNaN(Number(id))) {
@@ -75,28 +79,29 @@ export default class EventController {
 
     try {
       await EventService.cancel(Number(id));
-      res.status(204).send();
+      return res.status(204).send();
     } catch (err) {
-      res.status(400).json({ error: (err as Error).message });
+      return res.status(400).json({ error: (err as Error).message });
     }
   }
 
-  static async getById(req: Request, res: Response) {
+  static async getById(req: Request, res: Response): Promise<Response> {
     try {
       const id = Number(req.params.id);
 
       if (isNaN(id))
-        return res.status(400).json({ error: "Invalid ID" })
+        return res.status(400).json({ error: "Invalid ID" });
 
-      const event = await EventService.findById(id)
+
+      const event = await EventService.findById(id);
 
       if (event)
-        res.status(200).json(event)
+        return res.status(200).json(event)
 
-      res.status(404).json("Not Found")
+      return res.status(404).json("Not Found")
 
     } catch (err) {
-      res.status(500);
+      return res.status(500);
     }
   }
 }

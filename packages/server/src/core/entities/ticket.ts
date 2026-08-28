@@ -81,8 +81,8 @@ export default class Ticket {
   /**
  * Simply updates the status of the event
  * @param qr -> saves the qr unique UUID string
- * @throws  Error if the ticket is already reserved
- * @throws Error if the ticket's reservation already expired
+ * @throws  {Error} if the ticket is already reserved
+ * @throws {Error} if the ticket's reservation already expired
  */
   public confirm(qr: string): void {
     if (this._status !== TicketStatus.Reserved)
@@ -100,7 +100,7 @@ export default class Ticket {
 
   /**
    * Simply updates the status of the event
-   * @throws Error if the ticket is already canceled
+   * @throws {Error} if the ticket is already canceled
    */
   public cancel(): void {
     if (this._status === TicketStatus.Cancelled)

@@ -117,7 +117,7 @@ export default class Event {
   /**
    * Update the current event's description
    * @param description 
-   * @throws Error if the new description is empty
+   * @throws {Error} if the new description is empty
    */
   public updateDescription(description: string) {
     if (description.trim().length === 0)
@@ -128,8 +128,8 @@ export default class Event {
 
   /**
    * Simply updates the status of the event
-   * @throws Error if the event is already published
-   * @throws Error if the event doesn't have a date and location to be publish
+   * @throws {Error} if the event is already published
+   * @throws {Error} if the event doesn't have a date and location to be publish
    */
   public publish(): void {
     if (this._status === EventState.Published) {
@@ -143,7 +143,7 @@ export default class Event {
 
   /**
  * Simply updates the status of the event to draft
- * @throws Error if the event is already a draft
+ * @throws {Error} if the event is already a draft
  */
   public unpublish(): void {
     if (this._status === EventState.Draft) {

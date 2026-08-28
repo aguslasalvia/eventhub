@@ -38,6 +38,12 @@
       "@routes/*": [
         "./src/routes/*"
       ],
+      "@core/*": [
+        "./src/core/*"
+      ],
+      "@utils/*": [
+        "./src/utils/*"
+      ]
     }
   }
 }
