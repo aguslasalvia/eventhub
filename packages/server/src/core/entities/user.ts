@@ -54,4 +54,13 @@ export default class User {
   public isAdmin(): boolean {
     return this._userType === UserType.Administrator;
   }
+
+  public toJSON() {
+    return {
+      id: this._id,
+      name: this._name,
+      email: this._email,
+      userType: this._userType,
+    };
+  }
 }

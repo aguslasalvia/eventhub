@@ -153,6 +153,20 @@ export default class Event {
   }
 
 
+  public toJSON() {
+    return {
+      id: this._id,
+      title: this._title,
+      description: this._description,
+      location: this._location,
+      date: this._date,
+      maxCapacity: this._maxCapacity,
+      organizerId: this._organizerId,
+      status: this._status,
+    };
+  }
+
+
   //#endregion
 
 }

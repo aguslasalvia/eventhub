@@ -108,4 +108,16 @@ export default class Ticket {
     this._status = TicketStatus.Cancelled;
   }
 
+  public toJSON() {
+    return {
+      id: this._id,
+      ticketTypeId: this._ticketTypeId,
+      userId: this._userId,
+      qrCode: this._qrCode,
+      status: this._status,
+      purchaseDate: this._purchaseDate,
+      reservationExpiresAt: this._reservationExpiresAt,
+    };
+  }
+
 }
