@@ -1,8 +1,9 @@
-import express, { type Request, type Response } from "express";
+import express from "express";
 import cors from "cors";
 import SETTING from "./src/config/system";
-import testRouter from "./src/routes/test.route";
+import routes from "./src/routes"
 
+// Routes 
 const app = express();
 
 app.use(cors());
@@ -10,7 +11,9 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 
+// TODO: JWT Middleware
 // Route implementations
+app.use("/api", routes)
 
 
 app.listen(SETTING.PORT, () => {
