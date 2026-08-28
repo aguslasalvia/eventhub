@@ -16,7 +16,7 @@ export default class EventService {
     const event = new Event(null, title, description, location, date, capacity, organizerId, EventState.Draft);
     const [result] = await pool.execute(
       `
-      INSERT INTO events (title,description,location,date,naxCapacity,category,status organizerId)
+      INSERT INTO events (title,description,location,date,maxCapacity,category,status,organizerId)
       Values (? ,? ,? ,? ,? ,? ,? ,?);`,
       [
         event.Title,
