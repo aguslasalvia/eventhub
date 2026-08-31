@@ -41,6 +41,7 @@
 .hero__art {
   position: relative;
   height: 340px;
+  overflow: hidden;
 }
 
 .hero__blob {
@@ -170,5 +171,29 @@
 
   .hero__art {
     height: 220px;
+  }
+
+  .hero__blob--primary {
+    width: 190px;
+    height: 190px;
+    top: 0;
+    right: 20px;
+  }
+
+  .hero__blob--accent {
+    width: 110px;
+    height: 110px;
+  }
+
+  .hero__card {
+    width: 170px;
+    padding: var(--space-3);
+  }
+}
+
+@media (max-width: 480px) {
+  .hero__actions {
+    flex-direction: column;
+    align-items: stretch;
   }
 }
