@@ -1,12 +1,14 @@
 import { Router } from "express";
-import eventRoutes from "@routes/event.routes"
-import TicketRotues from "@routes/ticket.routes"
+import EventRoutes from "@routes/event.routes"
+import TicketRoutes from "@routes/ticket.routes"
+import UserRoutes from "@routes/users.routes"
 
 
 const router = Router();
 
 router
-  .use("/events", eventRoutes)
-  .use("/tickets", TicketRotues)
+  .use("/events", EventRoutes)
+  .use("/tickets", TicketRoutes)
+  .use("/users", UserRoutes)
 
 export default router;

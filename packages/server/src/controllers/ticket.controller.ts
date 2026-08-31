@@ -28,10 +28,8 @@ export default class TicketController {
 
     try {
       const ticket = await TicketService.findById(Number(id));
+      return foundResponse(res, ticket, "Ticket Not Found");
 
-      return !ticket
-        ? res.status(404).json({ error: "Tickets Not Found" })
-        : res.status(200).json(ticket);
     } catch (err) {
       return res.status(400).json({ error: (err as Error).message });
     }
