@@ -1,0 +1,44 @@
+CREATE TABLE IF NOT EXISTS users (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) NOT NULL UNIQUE,
+    password VARCHAR(255) NOT NULL,
+    userType TINYINT NOT NULL DEFAULT 1,
+    createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS events (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    title VARCHAR(255) NOT NULL,
+    description TEXT NOT NULL,
+    location VARCHAR(255) NULL,
+    date DATETIME NULL,
+    maxCapacity INT NULL,
+    category TINYINT NOT NULL,
+    status TINYINT NOT NULL DEFAULT 0,
+    organizerId INT NOT NULL,
+    createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (organizerId) REFERENCES users(id)
+);
+
+CREATE TABLE IF NOT EXISTS ticket_types (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    category TINYINT NOT NULL,
+    price DECIMAL(10, 2) NOT NULL,
+    totalCapacity INT NOT NULL,
+    availableCapacity INT NOT NULL,
+    eventId INT NOT NULL,
+    FOREIGN KEY (eventId) REFERENCES events(id)
+);
+
+CREATE TABLE IF NOT EXISTS tickets (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    ticketTypeId INT NOT NULL,
+    userId INT NOT NULL,
+    qrCode VARCHAR(255) NULL,
+    status TINYINT NOT NULL DEFAULT 0,
+    purchaseDate DATETIME NULL,
+    reservationExpiresAt DATETIME NULL,
+    FOREIGN KEY (ticketTypeId) REFERENCES ticket_types(id),
+    FOREIGN KEY (userId) REFERENCES users(id)
+);
