@@ -1,0 +1,8 @@
+.events-page__heading {
+  margin-bottom: var(--space-5);
+}
+
+.events-page__heading p {
+  color: var(--color-text-muted);
+  margin-top: var(--space-1);
+}

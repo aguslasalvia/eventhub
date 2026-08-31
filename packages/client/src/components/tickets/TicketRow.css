@@ -1,0 +1,63 @@
+.ticket-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-4) var(--space-5);
+  flex-wrap: wrap;
+}
+
+.ticket-row__heading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-2);
+}
+
+.ticket-row__event-title {
+  font-weight: 700;
+  font-size: 1.05rem;
+}
+
+.ticket-row__event-title:hover {
+  color: var(--color-primary);
+}
+
+.ticket-row__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+}
+
+.ticket-row__meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
+.ticket-row__meta svg {
+  color: var(--color-text-faint);
+}
+
+.ticket-row__expiry {
+  margin-top: var(--space-2);
+  font-size: 0.82rem;
+  color: var(--color-text-muted);
+}
+
+.ticket-row__expiry--expired {
+  color: var(--color-danger);
+  font-weight: 600;
+}
+
+.ticket-row__qr {
+  margin-top: var(--space-2);
+  font-size: 0.78rem;
+  color: var(--color-text-faint);
+  font-family: monospace;
+}

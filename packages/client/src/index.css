@@ -1,0 +1,138 @@
+:root {
+  color-scheme: light;
+
+  /* Palette */
+  --color-bg: #faf9fc;
+  --color-surface: #ffffff;
+  --color-surface-sunken: #f3f1f8;
+  --color-border: #e6e3ef;
+  --color-text: #17151f;
+  --color-text-muted: #625e70;
+  --color-text-faint: #948f9e;
+
+  --color-primary: #5b3df5;
+  --color-primary-hover: #4a2fe0;
+  --color-primary-soft: #efeafe;
+  --color-primary-contrast: #ffffff;
+
+  --color-accent: #ff6b4a;
+  --color-accent-soft: #ffe9e2;
+
+  --color-success: #1a9e6b;
+  --color-success-soft: #e2f6ee;
+  --color-danger: #e0374b;
+  --color-danger-soft: #fce7ea;
+  --color-neutral: #6a6478;
+  --color-neutral-soft: #edeaf3;
+
+  /* Typography */
+  --font-heading: "Sora", "Inter", system-ui, sans-serif;
+  --font-body: "Inter", system-ui, -apple-system, sans-serif;
+
+  /* Spacing scale */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+
+  /* Radius & shadow */
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 22px;
+  --radius-pill: 999px;
+
+  --shadow-sm: 0 1px 2px rgba(23, 21, 31, 0.06);
+  --shadow-md: 0 8px 24px rgba(23, 21, 31, 0.08);
+  --shadow-lg: 0 20px 48px rgba(23, 21, 31, 0.14);
+
+  --content-width: 1160px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  padding: 0;
+  margin: 0;
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  line-height: 1.15;
+  margin: 0;
+  color: var(--color-text);
+}
+
+p {
+  margin: 0;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+img {
+  max-width: 100%;
+  display: block;
+}
+
+/* Shared layout utility */
+.container {
+  width: 100%;
+  max-width: var(--content-width);
+  margin-inline: auto;
+  padding-inline: var(--space-5);
+}
+
+@media (max-width: 640px) {
+  .container {
+    padding-inline: var(--space-4);
+  }
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}

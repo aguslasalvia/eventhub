@@ -1,0 +1,14 @@
+.my-tickets-page__heading {
+  margin-bottom: var(--space-6);
+}
+
+.my-tickets-page__heading p {
+  color: var(--color-text-muted);
+  margin-top: var(--space-1);
+}
+
+.my-tickets-page__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}

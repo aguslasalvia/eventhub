@@ -1,0 +1,11 @@
+.event-form__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--space-3);
+}
+
+@media (max-width: 520px) {
+  .event-form__row {
+    grid-template-columns: 1fr;
+  }
+}
