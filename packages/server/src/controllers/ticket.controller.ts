@@ -42,8 +42,8 @@ export default class TicketController {
       return res.status(400).json({ error: "ID must be numeric" });
 
     try {
-      const ticket = await TicketService.findByUser(Number(userId));
-      return res.status(200).json(ticket);
+      const tickets = await TicketService.findByUserDetailed(Number(userId));
+      return res.status(200).json(tickets);
 
     } catch (err) {
       return res.status(400).json({ error: (err as Error).message });

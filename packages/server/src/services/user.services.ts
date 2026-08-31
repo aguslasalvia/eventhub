@@ -25,4 +25,22 @@ export default class UserService {
     const insertId = (result as any).insertId;
     return new User(insertId, name, email, hasshedPassword, userType);
   }
+
+
+  static async authenticate(email: string, password: string): Promise<User> {
+
+    const [rows] = await pool.execute("SELECT * FROM users WHERE email = ?;", [email]);
+    const row = (rows as any[])[0];
+
+    if (!row)
+      throw new Error("Invalid Credentials");
+
+    const user = User.fromRow(row);
+    const passwordOk = bcrypt.compare(password, user.Password);
+
+    if (!passwordOk)
+      throw new Error("Invalid Credentials");
+
+    return user;
+  }
 }

@@ -78,6 +78,46 @@ export default class TicketService {
   }
 
   /**
+   * Same as findByUser, but joined with the ticket's ticket type and event so
+   * a "my tickets" view has something human-readable to show (a bare Ticket
+   * only carries a ticketTypeId, no event title/price/etc).
+   */
+  static async findByUserDetailed(userId: number) {
+    const [rows] = await pool.execute(
+      `SELECT
+        t.id AS id, t.status AS status, t.qrCode AS qrCode,
+        t.purchaseDate AS purchaseDate, t.reservationExpiresAt AS reservationExpiresAt,
+        tt.id AS ticketTypeId, tt.category AS ticketTypeCategory, tt.price AS ticketTypePrice,
+        e.id AS eventId, e.title AS eventTitle, e.date AS eventDate, e.location AS eventLocation
+      FROM tickets t
+      JOIN ticket_types tt ON tt.id = t.ticketTypeId
+      JOIN events e ON e.id = tt.eventId
+      WHERE t.userId = ?
+      ORDER BY t.id DESC;`,
+      [userId],
+    );
+
+    return (rows as any[]).map((row) => ({
+      id: row.id,
+      status: row.status,
+      qrCode: row.qrCode,
+      purchaseDate: row.purchaseDate,
+      reservationExpiresAt: row.reservationExpiresAt,
+      ticketType: {
+        id: row.ticketTypeId,
+        category: row.ticketTypeCategory,
+        price: Number(row.ticketTypePrice),
+      },
+      event: {
+        id: row.eventId,
+        title: row.eventTitle,
+        date: row.eventDate,
+        location: row.eventLocation,
+      },
+    }));
+  }
+
+  /**
    * 
    * @param ticketTypeId 
    * @returns 

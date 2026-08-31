@@ -10,10 +10,27 @@ export default class EventController {
 
     try {
       const event = await EventService.create(title, description, maxCapacity, organizerId, location, date, category);
-      return res.send(201).json(event);
+      return res.status(201).json(event);
     }
     catch (err) {
       return res.status(400).json({ "error": (err as Error).message })
+    }
+  }
+
+  static async update(req: Request, res: Response): Promise<Response> {
+    const { id } = req.params;
+
+    if (isNaN(Number(id))) {
+      return res.status(400).json({ error: "The ID must be numeric" });
+    }
+
+    const { title, description, location, date, maxCapacity, category } = req.body;
+
+    try {
+      const event = await EventService.update(Number(id), { title, description, location, date, maxCapacity, category });
+      return res.status(200).json(event);
+    } catch (err) {
+      return res.status(400).json({ error: (err as Error).message });
     }
   }
 
@@ -27,6 +44,21 @@ export default class EventController {
     }
   }
 
+
+  static async findByOrganizer(req: Request, res: Response): Promise<Response> {
+    const { organizerId } = req.params;
+
+    if (!organizerId || isNaN(Number(organizerId))) {
+      return res.status(400).json({ error: "organizerId must be numeric" });
+    }
+
+    try {
+      const events = await EventService.findByOrganizer(Number(organizerId));
+      return res.status(200).json(events);
+    } catch (err) {
+      return res.status(500).json({ error: (err as Error).message });
+    }
+  }
 
   static async findPublished(req: Request, res: Response): Promise<Response> {
     try {

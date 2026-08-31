@@ -13,7 +13,7 @@ export default class EventService {
     category: EventCategory,
   ): Promise<Event> {
 
-    const event = new Event(null, title, description, location, date, capacity, organizerId, EventState.Draft);
+    const event = new Event(null, title, description, location, date, capacity, category, organizerId, EventState.Draft);
     const [result] = await pool.execute(
       `
       INSERT INTO events (title,description,location,date,maxCapacity,category,status,organizerId)
@@ -24,14 +24,50 @@ export default class EventService {
         event.Location,
         event.Date,
         event.MaxCapacity,
-        category,
+        event.Category,
         event.Status,
         event.OrganizerId,
       ]
     )
 
     const insertId = (result as any).insertId;
-    return new Event(insertId, title, description, location, date, capacity, organizerId, EventState.Draft);
+    return new Event(insertId, title, description, location, date, capacity, category, organizerId, EventState.Draft);
+  }
+
+  /**
+   * Updates an event's editable fields. Location and date are only changed
+   * when both are provided together, since confirmDateAndLocation requires both.
+   * @param id -> the event's id
+   * @param fields -> the new field values
+   * @returns -> the updated Event
+   */
+  static async update(id: number, fields: {
+    title: string;
+    description: string;
+    maxCapacity: number | null;
+    location: string | null;
+    date: Date | string | null;
+    category: EventCategory;
+  }): Promise<Event> {
+    const event = await this.findById(id);
+    if (!event)
+      throw new Error("Event Not Found");
+
+    event.updateTitle(fields.title);
+    event.updateDescription(fields.description);
+    event.updateCapacity(fields.maxCapacity);
+    event.updateCategory(fields.category);
+
+    if (fields.location && fields.date) {
+      event.confirmDateAndLocation(new Date(fields.date), fields.location);
+    }
+
+    await pool.execute(
+      "UPDATE events SET title = ?, description = ?, maxCapacity = ?, location = ?, date = ?, category = ? WHERE id = ?;",
+      [event.Title, event.Description, event.MaxCapacity, event.Location, event.Date, event.Category, event.Id],
+    );
+
+    return event;
   }
 
   static async findById(id: number): Promise<Event | null> {
@@ -50,8 +86,18 @@ export default class EventService {
   }
 
   /**
+   * All events (any status, including drafts) owned by one organizer.
+   * @param organizerId -> the organizer's user id
+   * @returns -> List of Event[]
+   */
+  static async findByOrganizer(organizerId: number): Promise<Event[]> {
+    const [rows] = await pool.execute("SELECT * FROM events WHERE organizerId = ? ORDER BY id DESC;", [organizerId]);
+    return (rows as any[]).map(e => Event.fromRow(e));
+  }
+
+  /**
    * Returns only the events that haven't happend yet and are published.
-   * @returns -> List of Event[] 
+   * @returns -> List of Event[]
    */
   static async findPublished(): Promise<Event[]> {
     const [rows] = await pool.execute("SELECT * FROM events WHERE status = ? AND (date IS NULL OR date >= NOW()) ORDER BY date ASC;", [EventState.Published]);

@@ -1,7 +1,7 @@
-import { EventState } from "@eventhub/shared";
+import { EventCategory, EventState } from "@eventhub/shared";
 
 export default class Event {
-  /* 
+  /*
    note:
    location can be null, because an event may be announced but it can not have a place/location determinated
    date: same as location, can be announce but don't have a date for now
@@ -12,6 +12,7 @@ export default class Event {
   private _location: string | null;
   private _date: Date | null;
   private _maxCapacity: number | null;
+  private _category: EventCategory;
   private _organizerId: number;
   private _status: EventState;
 
@@ -22,6 +23,7 @@ export default class Event {
     location: string | null = null,
     date: Date | null = null,
     capacity: number | null,
+    category: EventCategory,
     organizerId: number,
     state: EventState = EventState.Draft) {
 
@@ -34,6 +36,7 @@ export default class Event {
     this._location = location;
     this._date = date;
     this._maxCapacity = capacity;
+    this._category = category;
     this._organizerId = organizerId;
     this._status = state
   }
@@ -63,6 +66,10 @@ export default class Event {
 
   public get MaxCapacity(): number | null {
     return this._maxCapacity;
+  }
+
+  public get Category(): EventCategory {
+    return this._category;
   }
 
 
@@ -95,6 +102,7 @@ export default class Event {
       row.location,
       row.date ? new Date(row.date) : null,
       row.maxCapacity,
+      row.category as EventCategory,
       row.organizerId,
       row.status as EventState,
     );
@@ -116,7 +124,7 @@ export default class Event {
 
   /**
    * Update the current event's description
-   * @param description 
+   * @param description
    * @throws {Error} if the new description is empty
    */
   public updateDescription(description: string) {
@@ -124,6 +132,38 @@ export default class Event {
       throw new Error("The description cannot be empty");
 
     this._description = description;
+  }
+
+  /**
+   * Update the current event's title
+   * @param title
+   * @throws {Error} if the new title is empty
+   */
+  public updateTitle(title: string): void {
+    if (title.trim().length === 0)
+      throw new Error("The title cannot be empty");
+
+    this._title = title;
+  }
+
+  /**
+   * Update the current event's max capacity
+   * @param capacity
+   * @throws {Error} if capacity is provided and isn't greater than zero
+   */
+  public updateCapacity(capacity: number | null): void {
+    if (capacity !== null && capacity <= 0)
+      throw new Error("Capacity must be greater than zero");
+
+    this._maxCapacity = capacity;
+  }
+
+  /**
+   * Update the current event's category
+   * @param category
+   */
+  public updateCategory(category: EventCategory): void {
+    this._category = category;
   }
 
   /**
@@ -161,6 +201,7 @@ export default class Event {
       location: this._location,
       date: this._date,
       maxCapacity: this._maxCapacity,
+      category: this._category,
       organizerId: this._organizerId,
       status: this._status,
     };
