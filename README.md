@@ -18,7 +18,7 @@ eventhub/
 ├── bun.lock               # Root lockfile
 ├── scripts/                # Standalone helper scripts, not part of any package
 │   ├── database_table_creation.sql   # MySQL schema: users, events, ticket_types, tickets
-│   └── seed-events.ts                # Resets & seeds sample events/ticket types for local testing
+│   └── seed-data.sql                 # Resets & seeds sample users/events/ticket types/tickets for local testing
 └── packages/
     ├── server/            # Backend API (Bun + Express + TypeScript)
     ├── client/             # Frontend app (React + Vite + TypeScript)
@@ -30,7 +30,7 @@ eventhub/
 Utility scripts that support the project but aren't published as packages.
 
 - `database_table_creation.sql` — the SQL DDL used to create the MySQL schema (`users`, `events`, `ticket_types`, `tickets`) with their foreign key relationships.
-- `seed-events.ts` — resets and repopulates `events`/`ticket_types`/`tickets` with sample data for local testing. Run with `bun run scripts/seed-events.ts [organizerEmail]` (requires an existing organizer/administrator account).
+- `seed-data.sql` — resets and repopulates `users`/`events`/`ticket_types`/`tickets` with sample data for local testing, including a ready-to-use organizer and visitor account (both log in with `Password123!`). Run with `mysql -u eventhub_user -p eventhub < scripts/seed-data.sql`.
 
 ### `packages/server/`
 
@@ -104,8 +104,8 @@ cd packages/client
 bun run dev
 ```
 
-Optionally, seed some sample events/ticket types to test against (requires an existing organizer account — register one via the app first):
+Optionally, seed some sample users/events/ticket types to test against (includes a ready-to-use organizer and visitor account — see `scripts/seed-data.sql`):
 
 ```bash
-bun run scripts/seed-events.ts [organizerEmail]
+mysql -u eventhub_user -p eventhub < scripts/seed-data.sql
 ```

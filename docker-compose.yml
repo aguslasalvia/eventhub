@@ -42,6 +42,7 @@ services:
     restart: unless-stopped
     environment:
       API_TARGET: http://server:3000
+      ALLOWED_HOSTS: eventhub.aguslasalvia.online
     ports:
       - "8080:80"
     depends_on:

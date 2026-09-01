@@ -15,6 +15,7 @@ export default defineConfig({
   preview: {
     host: true,
     port: 80,
+    allowedHosts: (process.env.ALLOWED_HOSTS ?? "").split(",").filter(Boolean),
     proxy: {
       "/api": {
         target: process.env.API_TARGET || "http://server:3000",
