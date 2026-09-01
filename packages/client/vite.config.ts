@@ -12,4 +12,14 @@ export default defineConfig({
       },
     },
   },
+  preview: {
+    host: true,
+    port: 80,
+    proxy: {
+      "/api": {
+        target: process.env.API_TARGET || "http://server:3000",
+        changeOrigin: true,
+      },
+    },
+  },
 })
