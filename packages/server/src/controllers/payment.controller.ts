@@ -15,14 +15,22 @@ function parseTicketIds(raw: unknown): number[] | null {
 }
 
 export default class PaymentController {
+  /**
+   * The PayPal client id is meant to be public (it's embedded in the
+   * page's own script tag by design), so this needs no auth — it just
+   * saves the client from having to duplicate an env var across builds.
+   */
+  static clientId(_req: Request, res: Response): Response {
+    if (!SETTING.PAYPAL_CLIENT_ID)
+      return res.status(503).json({ error: "PayPal is not configured" });
+    return res.status(200).json({ clientId: SETTING.PAYPAL_CLIENT_ID });
+  }
+
   static async paypalCreateOrder(req: Request, res: Response): Promise<Response> {
     const ids = parseTicketIds(req.body.ticketIds);
-    const { origin } = req.body;
 
     if (!ids)
       return res.status(400).json({ error: `ticketIds must be a non-empty array of up to ${MAX_RESERVE_QUANTITY} numeric ids` });
-    if (!origin)
-      return res.status(400).json({ error: "origin is required" });
 
     try {
       const tickets: Ticket[] = [];
@@ -61,6 +69,10 @@ export default class PaymentController {
           : `${ids.length} tickets - ${event?.Title ?? "EventHub"}`
       ).slice(0, 127);
 
+      // No payment_source/experience_context here on purpose: this order is
+      // approved through the JS SDK's own Smart Payment Buttons (rendered
+      // in-page, no redirect), which presents the PayPal-account and
+      // guest debit/credit card options itself.
       const orderPayload = {
         intent: "CAPTURE",
         purchase_units: [
@@ -74,20 +86,6 @@ export default class PaymentController {
             },
           },
         ],
-        payment_source: {
-          paypal: {
-            experience_context: {
-              payment_method_preference: "IMMEDIATE_PAYMENT_REQUIRED",
-              brand_name: "EventHub",
-              locale: "es-UY",
-              landing_page: "LOGIN",
-              shipping_preference: "NO_SHIPPING",
-              user_action: "PAY_NOW",
-              return_url: `${origin}/paypal/success`,
-              cancel_url: `${origin}/paypal/cancel`,
-            },
-          },
-        },
       };
 
       const token = await PaymentController.getPaypalToken();

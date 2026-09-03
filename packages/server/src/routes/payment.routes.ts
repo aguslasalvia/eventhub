@@ -5,6 +5,7 @@ import authMiddleware from "@middlewares/auth.middleware";
 const router = Router();
 
 router
+  .get("/paypal/client-id", PaymentController.clientId)
   .post("/paypal/create-order", authMiddleware, PaymentController.paypalCreateOrder)
   .post("/paypal/capture-order/:orderId", authMiddleware, PaymentController.paypalCaptureOrder)
 
