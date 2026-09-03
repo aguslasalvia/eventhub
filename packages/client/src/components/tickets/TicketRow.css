@@ -63,6 +63,7 @@
 }
 
 .ticket-row__pay {
-  width: 100%;
-  max-width: 260px;
+  flex-basis: 100%;
+  max-width: 280px;
+  margin-top: var(--space-1);
 }

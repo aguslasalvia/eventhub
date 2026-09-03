@@ -148,6 +148,7 @@ export default function TicketPanel({ event }: { event: EventDto }) {
         <PayPalCheckoutButtons
           ticketIds={reservedTickets.map((t) => t.id)}
           onSuccess={setPaidTickets}
+          className="ticket-panel__cta"
         />
         <Button to="/my-tickets" variant="ghost" fullWidth className="ticket-panel__cta">
           Pay later from my tickets
