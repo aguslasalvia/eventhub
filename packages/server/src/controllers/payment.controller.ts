@@ -1,43 +1,76 @@
 import type { Request, Response } from "express";
 import SETTING from "src/config/system";
 import { TicketStatus } from "@eventhub/shared";
-import TicketService from "@services/ticket.services";
+import Ticket from "@core/entities/ticket";
+import TicketType from "@core/entities/ticketType";
+import TicketService, { MAX_RESERVE_QUANTITY } from "@services/ticket.services";
 import TicketTypeService from "@services/ticketType.services";
+import EventService from "@services/event.services";
+import PaymentService from "@services/payment.services";
+
+function parseTicketIds(raw: unknown): number[] | null {
+  if (!Array.isArray(raw) || raw.length === 0 || raw.length > MAX_RESERVE_QUANTITY) return null;
+  if (raw.some((id) => isNaN(Number(id)))) return null;
+  return [...new Set(raw.map(Number))];
+}
 
 export default class PaymentController {
   static async paypalCreateOrder(req: Request, res: Response): Promise<Response> {
-    const { ticketId, origin } = req.body;
+    const ids = parseTicketIds(req.body.ticketIds);
+    const { origin } = req.body;
 
-    if (!ticketId || isNaN(Number(ticketId)))
-      return res.status(400).json({ error: "ticketId must be numeric" });
+    if (!ids)
+      return res.status(400).json({ error: `ticketIds must be a non-empty array of up to ${MAX_RESERVE_QUANTITY} numeric ids` });
     if (!origin)
       return res.status(400).json({ error: "origin is required" });
 
     try {
-      const ticket = await TicketService.findById(Number(ticketId));
-      if (!ticket)
-        return res.status(404).json({ error: "Ticket not found" });
-      if (ticket.UserId !== req.user?.id)
-        return res.status(403).json({ error: "This ticket doesn't belong to you" });
+      const tickets: Ticket[] = [];
+      const ticketTypes = new Map<number, TicketType>();
+      let total = 0;
 
-      if (ticket.Status !== TicketStatus.Reserved)
-        return res.status(400).json({ error: "Ticket is not in a reserved state" });
-      if (ticket.isExpired())
-        return res.status(400).json({ error: "The reservation has expired" });
+      for (const id of ids) {
+        const ticket = await TicketService.findById(id);
+        if (!ticket)
+          return res.status(404).json({ error: `Ticket ${id} not found` });
+        if (ticket.UserId !== req.user?.id)
+          return res.status(403).json({ error: "One of these tickets doesn't belong to you" });
+        if (ticket.Status !== TicketStatus.Reserved)
+          return res.status(400).json({ error: `Ticket ${id} is not in a reserved state` });
+        if (ticket.isExpired())
+          return res.status(400).json({ error: `The reservation for ticket ${id} has expired` });
 
-      const ticketType = await TicketTypeService.findById(ticket.TicketTypeId);
-      if (!ticketType)
-        return res.status(404).json({ error: "Ticket type not found" });
+        let ticketType = ticketTypes.get(ticket.TicketTypeId);
+        if (!ticketType) {
+          const found = await TicketTypeService.findById(ticket.TicketTypeId);
+          if (!found)
+            return res.status(404).json({ error: "Ticket type not found" });
+          ticketType = found;
+          ticketTypes.set(ticket.TicketTypeId, ticketType);
+        }
+
+        tickets.push(ticket);
+        total += ticketType.Price;
+      }
+
+      const [firstTicketType] = ticketTypes.values();
+      const event = firstTicketType ? await EventService.findById(firstTicketType.EventId) : null;
+      const description = (
+        ids.length === 1
+          ? `1 ticket - ${event?.Title ?? "EventHub"}`
+          : `${ids.length} tickets - ${event?.Title ?? "EventHub"}`
+      ).slice(0, 127);
 
       const orderPayload = {
         intent: "CAPTURE",
         purchase_units: [
           {
-            reference_id: String(ticket.Id),
-            custom_id: String(ticket.Id),
+            reference_id: ids.join(","),
+            custom_id: ids.join(","),
+            description,
             amount: {
               currency_code: "USD",
-              value: ticketType.Price.toFixed(2),
+              value: total.toFixed(2),
             },
           },
         ],
@@ -84,19 +117,21 @@ export default class PaymentController {
 
   static async paypalCaptureOrder(req: Request, res: Response): Promise<Response> {
     const { orderId } = req.params;
-    const { ticketId } = req.body;
+    const ids = parseTicketIds(req.body.ticketIds);
 
     if (!orderId)
       return res.status(400).json({ error: "orderId is required" });
-    if (!ticketId || isNaN(Number(ticketId)))
-      return res.status(400).json({ error: "ticketId must be numeric" });
+    if (!ids)
+      return res.status(400).json({ error: `ticketIds must be a non-empty array of up to ${MAX_RESERVE_QUANTITY} numeric ids` });
 
     try {
-      const ticket = await TicketService.findById(Number(ticketId));
-      if (!ticket)
-        return res.status(404).json({ error: "Ticket not found" });
-      if (ticket.UserId !== req.user?.id)
-        return res.status(403).json({ error: "This ticket doesn't belong to you" });
+      for (const id of ids) {
+        const ticket = await TicketService.findById(id);
+        if (!ticket)
+          return res.status(404).json({ error: `Ticket ${id} not found` });
+        if (ticket.UserId !== req.user?.id)
+          return res.status(403).json({ error: "One of these tickets doesn't belong to you" });
+      }
 
       const token = await PaymentController.getPaypalToken();
       const response = await fetch(
@@ -120,9 +155,31 @@ export default class PaymentController {
       if (data.status !== "COMPLETED")
         return res.status(400).json({ error: `Payment not completed (status: ${data.status})` });
 
-      const confirmedTicket = await TicketService.confirm(Number(ticketId));
+      const confirmedTickets = await TicketService.confirmMany(ids);
 
-      return res.status(200).json({ ticket: confirmedTicket, capture: data });
+      // Capture id is what a future refund call needs — it only ever appears
+      // in this response, so it has to be saved now or it's gone for good.
+      // Runs after the tickets are already confirmed and kept non-fatal: the
+      // money is taken and the tickets are valid either way, so a failure
+      // here (only ever affecting a later refund's paper trail) shouldn't
+      // turn into an error response for a purchase that actually succeeded.
+      const capture = data.purchase_units?.[0]?.payments?.captures?.[0];
+      if (capture?.id) {
+        try {
+          await PaymentService.record(
+            req.user!.id,
+            String(orderId),
+            capture.id,
+            Number(capture.amount?.value ?? 0),
+            capture.amount?.currency_code ?? "USD",
+            ids,
+          );
+        } catch (recordErr) {
+          console.error("Failed to record PayPal payment (tickets are still confirmed):", recordErr);
+        }
+      }
+
+      return res.status(200).json({ tickets: confirmedTickets, capture: data });
     } catch (err) {
       return res.status(400).json({ error: (err as Error).message });
     }

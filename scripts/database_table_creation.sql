@@ -41,6 +41,18 @@ CREATE TABLE IF NOT EXISTS ticket_types (
     FOREIGN KEY (eventId) REFERENCES events(id)
 );
 
+CREATE TABLE IF NOT EXISTS payments (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    userId INT NOT NULL,
+    provider VARCHAR(50) NOT NULL DEFAULT 'paypal',
+    orderId VARCHAR(255) NOT NULL,
+    captureId VARCHAR(255) NOT NULL UNIQUE,
+    amount DECIMAL(10, 2) NOT NULL,
+    currency VARCHAR(10) NOT NULL DEFAULT 'USD',
+    createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (userId) REFERENCES users(id)
+);
+
 CREATE TABLE IF NOT EXISTS tickets (
     id INT AUTO_INCREMENT PRIMARY KEY,
     ticketTypeId INT NOT NULL,
@@ -49,6 +61,8 @@ CREATE TABLE IF NOT EXISTS tickets (
     status TINYINT NOT NULL DEFAULT 0,
     purchaseDate DATETIME NULL,
     reservationExpiresAt DATETIME NULL,
+    paymentId INT NULL,
     FOREIGN KEY (ticketTypeId) REFERENCES ticket_types(id),
-    FOREIGN KEY (userId) REFERENCES users(id)
+    FOREIGN KEY (userId) REFERENCES users(id),
+    FOREIGN KEY (paymentId) REFERENCES payments(id)
 );

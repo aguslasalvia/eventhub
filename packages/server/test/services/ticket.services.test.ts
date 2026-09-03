@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { TicketStatus } from "@eventhub/shared";
 
 function makeConn() {
   return {
@@ -71,5 +72,51 @@ describe("TicketService.reserve", () => {
 
   it("exposes the same cap the controller validates against", () => {
     expect(MAX_RESERVE_QUANTITY).toBeGreaterThan(0);
+  });
+});
+
+function reservedRow(id: number) {
+  return {
+    id,
+    ticketTypeId: 7,
+    userId: 42,
+    qrCode: null,
+    status: TicketStatus.Reserved,
+    purchaseDate: null,
+    reservationExpiresAt: new Date(Date.now() + 60_000),
+  };
+}
+
+describe("TicketService.confirmMany", () => {
+  beforeEach(() => {
+    conn = makeConn();
+    getConnectionMock.mockImplementation(() => conn);
+  });
+
+  it("confirms every ticket in one transaction", async () => {
+    conn.execute
+      .mockResolvedValueOnce([[reservedRow(1)]]) // SELECT ticket 1
+      .mockResolvedValueOnce([{}]) // UPDATE ticket 1
+      .mockResolvedValueOnce([[reservedRow(2)]]) // SELECT ticket 2
+      .mockResolvedValueOnce([{}]); // UPDATE ticket 2
+
+    const tickets = await TicketService.confirmMany([1, 2]);
+
+    expect(tickets).toHaveLength(2);
+    expect(tickets.every((t) => t.Status === TicketStatus.Confirmed && t.QrCode)).toBe(true);
+    expect(conn.commit).toHaveBeenCalledTimes(1);
+    expect(conn.rollback).not.toHaveBeenCalled();
+  });
+
+  it("rolls back all of them if any ticket in the batch can't be confirmed", async () => {
+    conn.execute
+      .mockResolvedValueOnce([[reservedRow(1)]]) // SELECT ticket 1 - ok
+      .mockResolvedValueOnce([{}]) // UPDATE ticket 1
+      .mockResolvedValueOnce([[]]); // SELECT ticket 2 - not found
+
+    await expect(TicketService.confirmMany([1, 2])).rejects.toThrow("Ticket 2 not found");
+
+    expect(conn.commit).not.toHaveBeenCalled();
+    expect(conn.rollback).toHaveBeenCalledTimes(1);
   });
 });

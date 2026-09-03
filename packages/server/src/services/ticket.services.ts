@@ -168,6 +168,48 @@ export default class TicketService {
   }
 
   /**
+   * Confirms several previously reserved tickets as one atomic unit — used
+   * right after a single PayPal capture pays for a whole batch at once, so
+   * either all of them end up Confirmed or none do (never a partial state
+   * after money has already changed hands).
+   *
+   * @param ids - the tickets' ids
+   * @returns the updated Tickets, in Confirmed status
+   * @throws {Error} if any ticket doesn't exist, isn't Reserved, or has expired
+   */
+  static async confirmMany(ids: number[]): Promise<Ticket[]> {
+    const conn = await pool.getConnection();
+
+    try {
+      await conn.beginTransaction();
+
+      const tickets: Ticket[] = [];
+      for (const id of ids) {
+        const [rows] = await conn.execute("SELECT * FROM tickets WHERE id = ?;", [id]);
+        const row = (rows as any[])[0];
+        if (!row) throw new Error(`Ticket ${id} not found`);
+
+        const ticket = Ticket.fromRow(row);
+        ticket.confirm(randomUUID());
+
+        await conn.execute(
+          "UPDATE tickets SET status = ?, qrCode = ?, purchaseDate = ?, reservationExpiresAt = ? WHERE id = ?",
+          [ticket.Status, ticket.QrCode, ticket.PurchaseDate, ticket.ReservationExpiresAt, ticket.Id],
+        );
+        tickets.push(ticket);
+      }
+
+      await conn.commit();
+      return tickets;
+    } catch (err) {
+      await conn.rollback();
+      throw err;
+    } finally {
+      conn.release();
+    }
+  }
+
+  /**
    * Cancels a ticket (reserved or confirmed) and releases its slot back
    * to the corresponding TicketType's available capacity.
    *
