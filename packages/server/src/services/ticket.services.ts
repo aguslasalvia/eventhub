@@ -1,4 +1,4 @@
-import { TicketStatus } from "@eventhub/shared"
+import { TicketStatus } from "@eventhub/shared/enums/tickets"
 import Ticket from "@core/entities/ticket"
 import { pool } from "../db/database"
 import { randomUUID } from "crypto"

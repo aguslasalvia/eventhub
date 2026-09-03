@@ -5,8 +5,8 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json && tsc-alias -p tsconfig.build.json && echo '{\"type\":\"commonjs\"}' > dist/package.json",
     "start:node": "node dist/server.js",
-    "test": "vitest run",
-    "test:watch": "vitest"
+    "test": "node --import tsx --test test/*/*.test.ts",
+    "test:watch": "node --import tsx --test --watch test/*/*.test.ts"
   },
   "devDependencies": {
     "@types/bcryptjs": "^3.0.0",
@@ -15,7 +15,7 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^24.13.3",
     "tsc-alias": "^1.8.16",
-    "vitest": "^3.2.4"
+    "tsx": "^4.23.13"
   },
   "peerDependencies": {
     "typescript": "^7.0.2"

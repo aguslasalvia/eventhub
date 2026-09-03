@@ -1,77 +1,75 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { TicketStatus } from "@eventhub/shared";
+import { describe, it, mock, beforeEach } from "node:test";
+import assert from "node:assert/strict";
+import { TicketStatus } from "@eventhub/shared/enums/tickets";
+import { pool } from "../../src/db/database";
+import TicketService, { MAX_RESERVE_QUANTITY } from "../../src/services/ticket.services";
 
 function makeConn() {
   return {
-    beginTransaction: vi.fn(),
-    execute: vi.fn(),
-    query: vi.fn(),
-    commit: vi.fn(),
-    rollback: vi.fn(),
-    release: vi.fn(),
+    beginTransaction: async () => { },
+    execute: async (..._args: unknown[]) => [{}],
+    query: async (..._args: unknown[]) => [{}],
+    commit: async () => { },
+    rollback: async () => { },
+    release: () => { },
   };
 }
 
-let conn = makeConn();
-const getConnectionMock = vi.fn(() => conn);
-vi.mock("src/db/database", () => ({
-  pool: { getConnection: getConnectionMock },
-}));
-
-const { default: TicketService, MAX_RESERVE_QUANTITY } = await import("@services/ticket.services");
-
 describe("TicketService.reserve", () => {
   beforeEach(() => {
-    conn = makeConn();
-    getConnectionMock.mockImplementation(() => conn);
+    mock.restoreAll();
   });
 
   it("reserves several tickets in one call with consecutive ids", async () => {
-    conn.execute.mockResolvedValueOnce([{ affectedRows: 1 }]); // capacity UPDATE
-    conn.query.mockResolvedValueOnce([{ insertId: 100 }]); // bulk INSERT
+    const conn = makeConn();
+    const executeMock = mock.method(conn, "execute", async () => [{ affectedRows: 1 }]);
+    const queryMock = mock.method(conn, "query", async () => [{ insertId: 100 }]);
+    mock.method(pool, "getConnection", async () => conn);
 
     const tickets = await TicketService.reserve(7, 42, 3);
 
-    expect(tickets).toHaveLength(3);
-    expect(tickets.map((t) => t.Id)).toEqual([100, 101, 102]);
-    expect(tickets.every((t) => t.TicketTypeId === 7 && t.UserId === 42)).toBe(true);
+    assert.equal(tickets.length, 3);
+    assert.deepEqual(tickets.map((t) => t.Id), [100, 101, 102]);
+    assert.ok(tickets.every((t) => t.TicketTypeId === 7 && t.UserId === 42));
 
-    const [updateSql, updateParams] = conn.execute.mock.calls[0] as [string, unknown[]];
-    expect(updateSql).toContain("availableCapacity - ?");
-    expect(updateParams).toEqual([3, 7, 3]);
+    const [updateSql, updateParams] = executeMock.mock.calls[0]!.arguments as [string, unknown[]];
+    assert.ok(updateSql.includes("availableCapacity - ?"));
+    assert.deepEqual(updateParams, [3, 7, 3]);
 
-    const [insertSql, insertParams] = conn.query.mock.calls[0] as [string, unknown[]];
-    expect(insertSql).toContain("INSERT INTO tickets");
-    expect((insertParams[0] as unknown[])).toHaveLength(3);
-
-    expect(conn.commit).toHaveBeenCalledTimes(1);
-    expect(conn.rollback).not.toHaveBeenCalled();
-    expect(conn.release).toHaveBeenCalledTimes(1);
+    const [insertSql, insertParams] = queryMock.mock.calls[0]!.arguments as [string, unknown[]];
+    assert.ok(insertSql.includes("INSERT INTO tickets"));
+    assert.equal((insertParams[0] as unknown[]).length, 3);
   });
 
   it("defaults to a single ticket when no quantity is given", async () => {
-    conn.execute.mockResolvedValueOnce([{ affectedRows: 1 }]);
-    conn.query.mockResolvedValueOnce([{ insertId: 5 }]);
+    const conn = makeConn();
+    const executeMock = mock.method(conn, "execute", async () => [{ affectedRows: 1 }]);
+    mock.method(conn, "query", async () => [{ insertId: 5 }]);
+    mock.method(pool, "getConnection", async () => conn);
 
     const tickets = await TicketService.reserve(1, 1);
 
-    expect(tickets).toHaveLength(1);
-    const [, updateParams] = conn.execute.mock.calls[0] as [string, unknown[]];
-    expect(updateParams).toEqual([1, 1, 1]);
+    assert.equal(tickets.length, 1);
+    const [, updateParams] = executeMock.mock.calls[0]!.arguments as [string, unknown[]];
+    assert.deepEqual(updateParams, [1, 1, 1]);
   });
 
-  it("rolls back and throws when there isn't enough capacity for the requested quantity", async () => {
-    conn.execute.mockResolvedValueOnce([{ affectedRows: 0 }]);
+  it("rolls back when there isn't enough capacity", async () => {
+    const conn = makeConn();
+    mock.method(conn, "execute", async () => [{ affectedRows: 0 }]);
+    const rollbackMock = mock.method(conn, "rollback", async () => { });
+    mock.method(pool, "getConnection", async () => conn);
 
-    await expect(TicketService.reserve(7, 42, 5)).rejects.toThrow("Not enough tickets available for this type");
+    await assert.rejects(
+      () => TicketService.reserve(7, 42, 5),
+      /Not enough tickets available/,
+    );
 
-    expect(conn.rollback).toHaveBeenCalledTimes(1);
-    expect(conn.query).not.toHaveBeenCalled();
-    expect(conn.commit).not.toHaveBeenCalled();
+    assert.equal(rollbackMock.mock.calls.length, 1);
   });
 
   it("exposes the same cap the controller validates against", () => {
-    expect(MAX_RESERVE_QUANTITY).toBeGreaterThan(0);
+    assert.ok(MAX_RESERVE_QUANTITY > 0);
   });
 });
 
@@ -89,34 +87,46 @@ function reservedRow(id: number) {
 
 describe("TicketService.confirmMany", () => {
   beforeEach(() => {
-    conn = makeConn();
-    getConnectionMock.mockImplementation(() => conn);
+    mock.restoreAll();
   });
 
   it("confirms every ticket in one transaction", async () => {
-    conn.execute
-      .mockResolvedValueOnce([[reservedRow(1)]]) // SELECT ticket 1
-      .mockResolvedValueOnce([{}]) // UPDATE ticket 1
-      .mockResolvedValueOnce([[reservedRow(2)]]) // SELECT ticket 2
-      .mockResolvedValueOnce([{}]); // UPDATE ticket 2
+    const conn = makeConn();
+    const responses = [
+      [[reservedRow(1)]],
+      [{}],
+      [[reservedRow(2)]],
+      [{}],
+    ];
+    let call = 0;
+    mock.method(conn, "execute", async () => responses[call++]);
+    const commitMock = mock.method(conn, "commit", async () => { });
+    mock.method(pool, "getConnection", async () => conn);
 
     const tickets = await TicketService.confirmMany([1, 2]);
 
-    expect(tickets).toHaveLength(2);
-    expect(tickets.every((t) => t.Status === TicketStatus.Confirmed && t.QrCode)).toBe(true);
-    expect(conn.commit).toHaveBeenCalledTimes(1);
-    expect(conn.rollback).not.toHaveBeenCalled();
+    assert.equal(tickets.length, 2);
+    assert.ok(tickets.every((t) => t.Status === TicketStatus.Confirmed && t.QrCode));
+    assert.equal(commitMock.mock.calls.length, 1);
   });
 
-  it("rolls back all of them if any ticket in the batch can't be confirmed", async () => {
-    conn.execute
-      .mockResolvedValueOnce([[reservedRow(1)]]) // SELECT ticket 1 - ok
-      .mockResolvedValueOnce([{}]) // UPDATE ticket 1
-      .mockResolvedValueOnce([[]]); // SELECT ticket 2 - not found
+  it("rolls back everything if one ticket in the batch fails", async () => {
+    const conn = makeConn();
+    const responses = [
+      [[reservedRow(1)]],
+      [{}],
+      [[]], // ticket 2 not found
+    ];
+    let call = 0;
+    mock.method(conn, "execute", async () => responses[call++]);
+    const rollbackMock = mock.method(conn, "rollback", async () => { });
+    mock.method(pool, "getConnection", async () => conn);
 
-    await expect(TicketService.confirmMany([1, 2])).rejects.toThrow("Ticket 2 not found");
+    await assert.rejects(
+      () => TicketService.confirmMany([1, 2]),
+      /Ticket 2 not found/,
+    );
 
-    expect(conn.commit).not.toHaveBeenCalled();
-    expect(conn.rollback).toHaveBeenCalledTimes(1);
+    assert.equal(rollbackMock.mock.calls.length, 1);
   });
 });

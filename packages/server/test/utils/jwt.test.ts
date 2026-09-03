@@ -1,31 +1,32 @@
-import { describe, it, expect } from "vitest";
-import { signToken, verifyToken, generateRefreshToken, hashRefreshToken } from "@utils/jwt";
+import { describe, it } from "node:test";
+import assert from "node:assert/strict";
+import { signToken, verifyToken, generateRefreshToken, hashRefreshToken } from "../../src/utils/jwt";
 
 describe("access tokens", () => {
   it("round-trips a signed token", () => {
     const token = signToken({ id: 1, userType: 2 });
     const payload = verifyToken(token);
-    expect(payload.id).toBe(1);
-    expect(payload.userType).toBe(2);
+    assert.equal(payload.id, 1);
+    assert.equal(payload.userType, 2);
   });
 
   it("rejects a tampered token", () => {
     const token = signToken({ id: 1, userType: 0 });
-    expect(() => verifyToken(`${token}tampered`)).toThrow();
+    assert.throws(() => verifyToken(token + "tampered"));
   });
 });
 
 describe("refresh tokens", () => {
-  it("generates unique, high-entropy tokens", () => {
+  it("generates unique tokens", () => {
     const a = generateRefreshToken();
     const b = generateRefreshToken();
-    expect(a).not.toBe(b);
-    expect(a).toMatch(/^[0-9a-f]{80}$/);
+    assert.notEqual(a, b);
+    assert.match(a, /^[0-9a-f]{80}$/);
   });
 
-  it("hashes deterministically, and never returns the raw token", () => {
+  it("hashes the token instead of storing it raw", () => {
     const token = generateRefreshToken();
-    expect(hashRefreshToken(token)).toBe(hashRefreshToken(token));
-    expect(hashRefreshToken(token)).not.toBe(token);
+    assert.equal(hashRefreshToken(token), hashRefreshToken(token));
+    assert.notEqual(hashRefreshToken(token), token);
   });
 });
