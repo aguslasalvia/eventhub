@@ -93,6 +93,7 @@ export interface AuthResponseDto {
     userType: UserType;
   };
   token: string;
+  refreshToken: string;
 }
 
 /** Shape returned by POST /api/payment/paypal/create-order — a PayPal Orders v2 order. */
