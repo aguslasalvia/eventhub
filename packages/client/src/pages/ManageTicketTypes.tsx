@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { useLocation, useParams } from "react-router";
 import { Calendar, TicketPlus } from "lucide-react";
+import toast from "react-hot-toast";
 import { TicketCategories } from "@eventhub/shared";
 import { Input, Select } from "../components/ui/Field";
 import Button from "../components/ui/Button";
@@ -43,7 +44,6 @@ function ManageTicketTypesContent() {
   const [category, setCategory] = useState<TicketCategories>(TicketCategories.Economic);
   const [price, setPrice] = useState("");
   const [totalCapacity, setTotalCapacity] = useState("");
-  const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
@@ -64,16 +64,15 @@ function ManageTicketTypesContent() {
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    setFormError(null);
 
     const priceValue = Number(price);
     const capacityValue = Number(totalCapacity);
     if (isNaN(priceValue) || priceValue < 0) {
-      setFormError("Enter a valid price.");
+      toast.error("Enter a valid price.");
       return;
     }
     if (isNaN(capacityValue) || capacityValue <= 0) {
-      setFormError("Enter a capacity greater than zero.");
+      toast.error("Enter a capacity greater than zero.");
       return;
     }
 
@@ -83,8 +82,9 @@ function ManageTicketTypesContent() {
       setTicketTypes((prev) => [...prev, created]);
       setPrice("");
       setTotalCapacity("");
+      toast.success("Ticket type added.");
     } catch (err) {
-      setFormError(err instanceof ApiError ? err.message : "Couldn't create this ticket type.");
+      toast.error(err instanceof ApiError ? err.message : "Couldn't create this ticket type.");
     } finally {
       setIsSubmitting(false);
     }
@@ -175,8 +175,6 @@ function ManageTicketTypesContent() {
               onChange={(e) => setTotalCapacity(e.target.value)}
             />
           </div>
-
-          {formError && <Alert tone="danger">{formError}</Alert>}
 
           <Button type="submit" fullWidth disabled={isSubmitting}>
             {isSubmitting ? "Adding…" : "Add ticket type"}

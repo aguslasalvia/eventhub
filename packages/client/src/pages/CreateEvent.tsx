@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
 import { CalendarPlus } from "lucide-react";
+import toast from "react-hot-toast";
 import EventForm from "../components/events/EventForm";
 import type { EventFormValues } from "../components/events/EventForm";
 import Button from "../components/ui/Button";
@@ -28,15 +29,12 @@ function CreateEventForm() {
   const { refetch } = useEvents();
   const navigate = useNavigate();
 
-  const [status, setStatus] = useState<"idle" | "submitting" | "created" | "error">("idle");
-  const [serverError, setServerError] = useState<string | null>(null);
+  const [status, setStatus] = useState<"idle" | "submitting" | "created">("idle");
   const [createdEvent, setCreatedEvent] = useState<EventDto | null>(null);
-  const [publishState, setPublishState] = useState<"idle" | "publishing" | "published" | "error">("idle");
-  const [publishError, setPublishError] = useState<string | null>(null);
+  const [publishState, setPublishState] = useState<"idle" | "publishing" | "published">("idle");
 
   async function handleSubmit(values: EventFormValues) {
     setStatus("submitting");
-    setServerError(null);
     try {
       const event = await createEvent({
         title: values.title.trim(),
@@ -50,22 +48,21 @@ function CreateEventForm() {
       setCreatedEvent(event);
       setStatus("created");
     } catch (err) {
-      setStatus("error");
-      setServerError(err instanceof ApiError ? err.message : "Something went wrong. Please try again.");
+      setStatus("idle");
+      toast.error(err instanceof ApiError ? err.message : "Something went wrong. Please try again.");
     }
   }
 
   async function handlePublish() {
     if (!createdEvent) return;
     setPublishState("publishing");
-    setPublishError(null);
     try {
       await publishEvent(createdEvent.id);
       setPublishState("published");
       refetch();
     } catch (err) {
-      setPublishState("error");
-      setPublishError(err instanceof ApiError ? err.message : "Couldn't publish the event.");
+      setPublishState("idle");
+      toast.error(err instanceof ApiError ? err.message : "Couldn't publish the event.");
     }
   }
 
@@ -92,7 +89,6 @@ function CreateEventForm() {
           ) : canPublish ? (
             <>
               <p className="auth-card__subtitle">It has a date and location, so you can publish it right away.</p>
-              {publishState === "error" && publishError && <Alert tone="danger">{publishError}</Alert>}
               <Button
                 variant="primary"
                 fullWidth
@@ -132,7 +128,6 @@ function CreateEventForm() {
           submitLabel="Create event"
           submittingLabel="Creating event…"
           isSubmitting={status === "submitting"}
-          serverError={status === "error" ? serverError : null}
           onSubmit={handleSubmit}
         />
       </div>

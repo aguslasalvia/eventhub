@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { FormEvent } from "react";
 import { Navigate } from "react-router";
 import { UserPlus } from "lucide-react";
+import toast from "react-hot-toast";
 import { UserType } from "@eventhub/shared";
 import { Input } from "../components/ui/Field";
 import Button from "../components/ui/Button";
@@ -42,8 +43,7 @@ export default function Register() {
   const { user } = useAuth();
   const [form, setForm] = useState<FormState>(initialState);
   const [errors, setErrors] = useState<Partial<Record<keyof FormState, string>>>({});
-  const [status, setStatus] = useState<"idle" | "submitting" | "success" | "error">("idle");
-  const [serverError, setServerError] = useState<string | null>(null);
+  const [status, setStatus] = useState<"idle" | "submitting" | "success">("idle");
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -60,7 +60,6 @@ export default function Register() {
     if (Object.keys(validationErrors).length > 0) return;
 
     setStatus("submitting");
-    setServerError(null);
     try {
       await registerUser({
         name: form.name.trim(),
@@ -70,8 +69,8 @@ export default function Register() {
       });
       setStatus("success");
     } catch (err) {
-      setStatus("error");
-      setServerError(err instanceof ApiError ? err.message : "Something went wrong. Please try again.");
+      setStatus("idle");
+      toast.error(err instanceof ApiError ? err.message : "Something went wrong. Please try again.");
     }
   }
 
@@ -150,8 +149,6 @@ export default function Register() {
             error={errors.confirmPassword}
             autoComplete="new-password"
           />
-
-          {status === "error" && serverError && <Alert tone="danger">{serverError}</Alert>}
 
           <Button type="submit" fullWidth disabled={status === "submitting"}>
             {status === "submitting" ? "Creating account…" : "Create account"}

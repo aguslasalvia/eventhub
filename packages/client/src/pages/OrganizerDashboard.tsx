@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { LayoutDashboard } from "lucide-react";
+import toast from "react-hot-toast";
 import Button from "../components/ui/Button";
 import Spinner from "../components/ui/Spinner";
 import Alert from "../components/ui/Alert";
@@ -29,7 +30,6 @@ function OrganizerDashboardContent() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [pendingId, setPendingId] = useState<number | null>(null);
-  const [actionError, setActionError] = useState<string | null>(null);
 
   const load = useCallback(() => {
     if (!user) return;
@@ -45,13 +45,13 @@ function OrganizerDashboardContent() {
 
   async function handlePublish(event: EventDto) {
     setPendingId(event.id);
-    setActionError(null);
     try {
       const updated = await publishEvent(event.id);
       setEvents((prev) => prev.map((e) => (e.id === updated.id ? updated : e)));
       refetchPublicEvents();
+      toast.success(`"${event.title}" is published.`);
     } catch (err) {
-      setActionError(err instanceof ApiError ? err.message : `Couldn't publish "${event.title}".`);
+      toast.error(err instanceof ApiError ? err.message : `Couldn't publish "${event.title}".`);
     } finally {
       setPendingId(null);
     }
@@ -59,13 +59,13 @@ function OrganizerDashboardContent() {
 
   async function handleUnpublish(event: EventDto) {
     setPendingId(event.id);
-    setActionError(null);
     try {
       const updated = await unpublishEvent(event.id);
       setEvents((prev) => prev.map((e) => (e.id === updated.id ? updated : e)));
       refetchPublicEvents();
+      toast.success(`"${event.title}" is unpublished.`);
     } catch (err) {
-      setActionError(err instanceof ApiError ? err.message : `Couldn't unpublish "${event.title}".`);
+      toast.error(err instanceof ApiError ? err.message : `Couldn't unpublish "${event.title}".`);
     } finally {
       setPendingId(null);
     }
@@ -85,7 +85,6 @@ function OrganizerDashboardContent() {
 
       {isLoading && <Spinner label="Loading your events…" />}
       {!isLoading && error && <Alert tone="danger">{error}</Alert>}
-      {actionError && <Alert tone="danger">{actionError}</Alert>}
 
       {!isLoading && !error && events.length === 0 && (
         <EmptyState

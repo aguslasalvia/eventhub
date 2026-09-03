@@ -3,7 +3,6 @@ import type { FormEvent } from "react";
 import { EventCategory } from "@eventhub/shared";
 import { Input, Select, Textarea } from "../ui/Field";
 import Button from "../ui/Button";
-import Alert from "../ui/Alert";
 import { eventCategoryLabel } from "../../lib/enumLabels";
 import "./EventForm.css";
 
@@ -42,7 +41,6 @@ interface EventFormProps {
   submitLabel: string;
   submittingLabel: string;
   isSubmitting: boolean;
-  serverError?: string | null;
   onSubmit: (values: EventFormValues) => void;
 }
 
@@ -51,7 +49,6 @@ export default function EventForm({
   submitLabel,
   submittingLabel,
   isSubmitting,
-  serverError,
   onSubmit,
 }: EventFormProps) {
   const [form, setForm] = useState<EventFormValues>({ ...emptyValues, ...initialValues });
@@ -123,8 +120,6 @@ export default function EventForm({
         onChange={(e) => update("maxCapacity", e.target.value)}
         error={errors.maxCapacity}
       />
-
-      {serverError && <Alert tone="danger">{serverError}</Alert>}
 
       <Button type="submit" fullWidth disabled={isSubmitting}>
         {isSubmitting ? submittingLabel : submitLabel}

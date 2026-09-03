@@ -2,14 +2,15 @@ import { useState } from "react";
 import type { FormEvent } from "react";
 import { Navigate, useNavigate } from "react-router";
 import { LogIn } from "lucide-react";
+import toast from "react-hot-toast";
 import { Input } from "../components/ui/Field";
 import Button from "../components/ui/Button";
-import Alert from "../components/ui/Alert";
+import { ApiError } from "../api/client";
 import { useAuth } from "../hooks/useAuth";
 import "./AuthPage.css";
 
 export default function Login() {
-  const { user, login, isAuthenticating, error } = useAuth();
+  const { user, login, isAuthenticating } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -23,8 +24,8 @@ export default function Login() {
     try {
       await login(email, password);
       navigate("/");
-    } catch {
-      // error is already captured in auth state and rendered below
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Couldn't log in. Please try again.");
     }
   }
 
@@ -56,8 +57,6 @@ export default function Login() {
             autoComplete="current-password"
             required
           />
-
-          {error && <Alert tone="danger">{error}</Alert>}
 
           <Button type="submit" fullWidth disabled={isAuthenticating}>
             {isAuthenticating ? "Logging in…" : "Log in"}

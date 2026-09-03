@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useLocation, useParams } from "react-router";
 import { Calendar, Pencil } from "lucide-react";
+import toast from "react-hot-toast";
 import EventForm from "../components/events/EventForm";
 import type { EventFormValues } from "../components/events/EventForm";
 import Button from "../components/ui/Button";
@@ -36,8 +37,7 @@ function EditEventForm() {
   const [event, setEvent] = useState<EventDto | null>(passedEvent ?? null);
   const [isLoading, setIsLoading] = useState(!passedEvent);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [status, setStatus] = useState<"idle" | "submitting" | "success" | "error">("idle");
-  const [serverError, setServerError] = useState<string | null>(null);
+  const [status, setStatus] = useState<"idle" | "submitting" | "success">("idle");
 
   useEffect(() => {
     if (passedEvent || !user) return;
@@ -50,7 +50,6 @@ function EditEventForm() {
   async function handleSubmit(values: EventFormValues) {
     if (!event) return;
     setStatus("submitting");
-    setServerError(null);
     try {
       const updated = await updateEvent(event.id, {
         title: values.title.trim(),
@@ -62,10 +61,11 @@ function EditEventForm() {
       });
       setEvent(updated);
       setStatus("success");
+      toast.success("Changes saved.");
       refetchPublicEvents();
     } catch (err) {
-      setStatus("error");
-      setServerError(err instanceof ApiError ? err.message : "Something went wrong. Please try again.");
+      setStatus("idle");
+      toast.error(err instanceof ApiError ? err.message : "Something went wrong. Please try again.");
     }
   }
 
@@ -120,8 +120,6 @@ function EditEventForm() {
         <h1>Edit event</h1>
         <p className="auth-card__subtitle">Update the details for "{event.title}".</p>
 
-        {status === "success" && <Alert tone="success">Saved.</Alert>}
-
         <EventForm
           initialValues={{
             title: event.title,
@@ -134,7 +132,6 @@ function EditEventForm() {
           submitLabel="Save changes"
           submittingLabel="Saving…"
           isSubmitting={status === "submitting"}
-          serverError={status === "error" ? serverError : null}
           onSubmit={handleSubmit}
         />
 
