@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { Link } from "react-router";
-import { CalendarOff, CircleCheck, Ticket, TicketX } from "lucide-react";
+import { CalendarOff, CircleCheck, Minus, Plus, Ticket, TicketX } from "lucide-react";
 import { EventState } from "@eventhub/shared";
 import type { EventDto, TicketDto, TicketTypeDto } from "../../api/types";
 import { fetchTicketTypesByEvent } from "../../api/ticketTypes";
@@ -38,6 +38,11 @@ function PanelShell({
   );
 }
 
+// Mirrors TicketService.MAX_RESERVE_QUANTITY on the server — the server is
+// the source of truth and re-validates this, this just avoids letting
+// someone dial up a quantity request that's guaranteed to be rejected.
+const MAX_QUANTITY = 10;
+
 export default function TicketPanel({ event }: { event: EventDto }) {
   const { user } = useAuth();
 
@@ -46,9 +51,10 @@ export default function TicketPanel({ event }: { event: EventDto }) {
   const [ticketTypes, setTicketTypes] = useState<TicketTypeDto[]>([]);
   const [isLoading, setIsLoading] = useState(isPublished);
   const [error, setError] = useState<string | null>(null);
+  const [quantities, setQuantities] = useState<Record<number, number>>({});
   const [reservingId, setReservingId] = useState<number | null>(null);
   const [reserveError, setReserveError] = useState<string | null>(null);
-  const [reservedTicket, setReservedTicket] = useState<TicketDto | null>(null);
+  const [reservedTickets, setReservedTickets] = useState<TicketDto[] | null>(null);
 
   useEffect(() => {
     if (!isPublished) return;
@@ -58,18 +64,32 @@ export default function TicketPanel({ event }: { event: EventDto }) {
       .finally(() => setIsLoading(false));
   }, [event.id, isPublished]);
 
+  function maxFor(ticketType: TicketTypeDto): number {
+    return Math.max(1, Math.min(ticketType.availableCapacity, MAX_QUANTITY));
+  }
+
+  function getQuantity(ticketType: TicketTypeDto): number {
+    return Math.min(quantities[ticketType.id] ?? 1, maxFor(ticketType));
+  }
+
+  function setQuantity(ticketType: TicketTypeDto, next: number) {
+    const clamped = Math.min(Math.max(next, 1), maxFor(ticketType));
+    setQuantities((prev) => ({ ...prev, [ticketType.id]: clamped }));
+  }
+
   async function handleReserve(ticketType: TicketTypeDto) {
     if (!user) return;
+    const quantity = getQuantity(ticketType);
     setReservingId(ticketType.id);
     setReserveError(null);
     try {
-      const ticket = await reserveTicket(ticketType.id, user.id);
-      setReservedTicket(ticket);
+      const tickets = await reserveTicket(ticketType.id, user.id, quantity);
+      setReservedTickets(tickets);
       setTicketTypes((prev) =>
-        prev.map((t) => (t.id === ticketType.id ? { ...t, availableCapacity: t.availableCapacity - 1 } : t)),
+        prev.map((t) => (t.id === ticketType.id ? { ...t, availableCapacity: t.availableCapacity - quantity } : t)),
       );
     } catch (err) {
-      setReserveError(err instanceof ApiError ? err.message : "Couldn't reserve this ticket.");
+      setReserveError(err instanceof ApiError ? err.message : "Couldn't reserve these tickets.");
     } finally {
       setReservingId(null);
     }
@@ -102,12 +122,15 @@ export default function TicketPanel({ event }: { event: EventDto }) {
     );
   }
 
-  if (reservedTicket) {
+  if (reservedTickets) {
+    const [firstTicket] = reservedTickets;
+    const count = reservedTickets.length;
     return (
       <PanelShell icon={CircleCheck} title="Reserved!">
         <p>
-          Your spot is held until{" "}
-          <strong>{formatEventDateTime(reservedTicket.reservationExpiresAt)}</strong> — confirm it before then.
+          {count === 1 ? "Your spot is" : `Your ${count} spots are`} held until{" "}
+          <strong>{formatEventDateTime(firstTicket?.reservationExpiresAt ?? null)}</strong> —{" "}
+          {count === 1 ? "confirm it" : "confirm them"} before then.
         </p>
         <Button to="/my-tickets" variant="primary" fullWidth className="ticket-panel__cta">
           Go to my tickets
@@ -131,6 +154,8 @@ export default function TicketPanel({ event }: { event: EventDto }) {
         <ul className="ticket-panel__list">
           {ticketTypes.map((ticketType) => {
             const soldOut = ticketType.availableCapacity <= 0;
+            const quantity = getQuantity(ticketType);
+            const isBusy = reservingId === ticketType.id;
             return (
               <li key={ticketType.id} className="ticket-panel__item">
                 <div className="ticket-panel__item-info">
@@ -139,13 +164,37 @@ export default function TicketPanel({ event }: { event: EventDto }) {
                     {formatPrice(ticketType.price)} · {soldOut ? "Sold out" : `${ticketType.availableCapacity} left`}
                   </span>
                 </div>
-                <Button
-                  variant="secondary"
-                  onClick={() => handleReserve(ticketType)}
-                  disabled={soldOut || reservingId === ticketType.id}
-                >
-                  {reservingId === ticketType.id ? "Reserving…" : "Reserve"}
-                </Button>
+
+                <div className="ticket-panel__actions">
+                  {!soldOut && (
+                    <div className="ticket-panel__stepper">
+                      <button
+                        type="button"
+                        aria-label={`Fewer ${ticketCategoryLabel[ticketType.category]} tickets`}
+                        onClick={() => setQuantity(ticketType, quantity - 1)}
+                        disabled={isBusy || quantity <= 1}
+                      >
+                        <Minus size={14} />
+                      </button>
+                      <span aria-live="polite">{quantity}</span>
+                      <button
+                        type="button"
+                        aria-label={`More ${ticketCategoryLabel[ticketType.category]} tickets`}
+                        onClick={() => setQuantity(ticketType, quantity + 1)}
+                        disabled={isBusy || quantity >= maxFor(ticketType)}
+                      >
+                        <Plus size={14} />
+                      </button>
+                    </div>
+                  )}
+                  <Button
+                    variant="secondary"
+                    onClick={() => handleReserve(ticketType)}
+                    disabled={soldOut || isBusy}
+                  >
+                    {isBusy ? "Reserving…" : "Reserve"}
+                  </Button>
+                </div>
               </li>
             );
           })}
