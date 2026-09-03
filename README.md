@@ -1,10 +1,10 @@
 # EventHub
 
-EventHub is an event management platform where organizers can create, publish and manage events, and attendees can browse events, reserve tickets, and confirm their attendance. It covers the full flow from event creation to ticket reservation and confirmation, including multiple ticket categories per event (Economic, Medium, Premium, VIP, Press, Student) with capacity tracking, and role-based users (Visitor, Assistant, Planner, Administrator).
+EventHub is an event management platform where organizers can create, publish and manage events, and attendees can browse events, reserve tickets, and confirm their attendance. It covers the full flow from event creation to ticket reservation and payment, including multiple ticket categories per event (Economic, Medium, Premium, VIP, Press, Student) with capacity tracking, role-based users (Visitor, Assistant, Planner, Administrator), and PayPal checkout — a buyer can pay with a PayPal account or with a debit/credit card, no account required, without leaving the page.
 
 The project is a Bun/TypeScript monorepo (npm/Bun workspaces) with three packages:
 
-- `packages/server` — a REST API built with Express and Bun, backed by MySQL, exposing endpoints for users, events, ticket types, and tickets.
+- `packages/server` — a REST API built with Express and Bun, backed by MySQL, exposing endpoints for users, events, ticket types, tickets, and PayPal payments.
 - `packages/client` — a React + Vite single-page app that consumes the API: browsing/searching events, an organizer dashboard (create/edit/publish events, manage ticket types), and the attendee flow (reserve a ticket, view "My tickets", confirm attendance).
 - `packages/shared` — TypeScript types and enums shared between server and client (event categories/status, ticket categories/status, user types).
 
@@ -17,7 +17,7 @@ eventhub/
 ├── package.json          # Workspace root (Bun workspaces: packages/*)
 ├── bun.lock               # Root lockfile
 ├── scripts/                # Standalone helper scripts, not part of any package
-│   ├── database_table_creation.sql   # MySQL schema: users, events, ticket_types, tickets
+│   ├── database_table_creation.sql   # MySQL schema (users, events, tickets, payments, ...)
 │   └── seed-data.sql                 # Resets & seeds sample users/events/ticket types/tickets for local testing
 └── packages/
     ├── server/            # Backend API (Bun + Express + TypeScript)
@@ -29,7 +29,7 @@ eventhub/
 
 Utility scripts that support the project but aren't published as packages.
 
-- `database_table_creation.sql` — the SQL DDL used to create the MySQL schema (`users`, `events`, `ticket_types`, `tickets`) with their foreign key relationships.
+- `database_table_creation.sql` — the SQL DDL used to create the MySQL schema (`users`, `refresh_tokens`, `events`, `ticket_types`, `payments`, `tickets`) with their foreign key relationships.
 - `seed-data.sql` — resets and repopulates `users`/`events`/`ticket_types`/`tickets` with sample data for local testing, including a ready-to-use organizer and visitor account (both log in with `Password123!`). Run with `mysql -u eventhub_user -p eventhub < scripts/seed-data.sql`.
 
 ### `packages/server/`
@@ -37,20 +37,32 @@ Utility scripts that support the project but aren't published as packages.
 Express API server run with Bun.
 
 - `server.ts` — app entry point: sets up Express, CORS, JSON body parsing, and mounts the API routes under `/api`.
-- `src/config/` — runtime configuration (e.g. server port and other environment-derived settings).
-- `src/controllers/` — request handlers for events, ticket types, tickets, and users; translate HTTP requests into service calls and shape responses.
-- `src/core/entities/` — domain entity definitions for events, ticket types, tickets, and users used across the server.
+- `src/config/` — runtime configuration (DB connection, JWT secret, PayPal credentials — all read from environment variables, see `.env`).
+- `src/controllers/` — request handlers for events, ticket types, tickets, users, and payments; translate HTTP requests into service calls and shape responses.
+- `src/core/entities/` — domain entity definitions for events, ticket types, tickets, users, and payments used across the server.
 - `src/db/` — database connection setup (MySQL via `mysql2`).
-- `src/middlewares/` — Express middlewares, including authentication (JWT-based).
-- `src/routes/` — Express routers per resource (`event.routes.ts`, `ticket-type.routes.ts`, `ticket.routes.ts`, `users.routes.ts`), aggregated in `routes/index.ts` and mounted at `/api`.
-- `src/services/` — business logic and data-access layer for events, ticket types, tickets, and users, called by the controllers.
-- `src/utils/` — shared helpers, such as input field validators and query response formatting.
+- `src/middlewares/` — Express middlewares, including `auth.middleware.ts`, which verifies the JWT access token on protected routes.
+- `src/routes/` — Express routers per resource (`event.routes.ts`, `ticket-type.routes.ts`, `ticket.routes.ts`, `users.routes.ts`, `payment.routes.ts`), aggregated in `routes/index.ts` and mounted at `/api`.
+- `src/services/` — business logic and data-access layer for events, ticket types, tickets, users, refresh tokens, and payments, called by the controllers.
+- `src/utils/` — shared helpers: input field validators, query response formatting, and `jwt.ts` (signing/verifying access tokens, generating/hashing refresh tokens).
+
+#### Auth
+
+Login issues a short-lived access token (15 min) plus a refresh token. The refresh token is single-use — redeeming it via `POST /users/refresh-token` returns a new access/refresh pair and revokes the old one, so a stolen-but-unused refresh token stops working the moment the real client refreshes. `POST /users/logout` revokes a refresh token outright.
+
+#### Payments
+
+Tickets are reserved first (`POST /tickets`, holds for 10 minutes, `quantity` lets a buyer reserve several at once) and paid for separately. Payment goes through PayPal's Smart Payment Buttons (`@paypal/react-paypal-js` on the client) — rendered in-page, no redirect to paypal.com, and a buyer without a PayPal account can still pay by card. One PayPal order can cover several reserved tickets at once (however many were reserved together). `GET /payment/paypal/client-id` hands the client its (public) PayPal client id; `POST /payment/paypal/create-order` and `POST /payment/paypal/capture-order/:orderId` create and capture the order and confirm the covered tickets. Each successful capture is recorded in `payments` (capture id, amount, which tickets it covers) — enough to issue a refund later, though there's no refund endpoint yet.
+
+#### Running under plain Node
+
+The server runs on Bun day to day (`bun run server.ts`), but `bun run build` also produces a CommonJS build under `dist/` (via `tsc` + `tsc-alias`) that runs on plain Node: `bun run build && bun run start:node`.
 
 #### Known limitations
 
-- `auth.middleware.ts` doesn't verify anything yet (it's a pass-through) — login/register check real credentials, but no token/session is issued or enforced, so route protection is UI-only on the client.
-- `POST /events/:id/cancel` reverts an event to Draft rather than a distinct "Cancelled" state, and `DELETE /events/:id` currently does the same (it doesn't actually delete).
+- `POST /events/:id/cancel` reverts an event to Draft rather than a distinct "Cancelled" state.
 - Ticket cancellation isn't wired up (the entity supports it, the route is commented out).
+- No automated tests — this is a solo/local project, nothing runs them in CI, so they weren't worth maintaining.
 
 ### `packages/client/`
 
@@ -58,19 +70,22 @@ Frontend single-page application. Plain CSS (no framework), one stylesheet co-lo
 
 - `index.html` / `vite.config.ts` — Vite entry point and build configuration (the dev server proxies `/api` to `http://localhost:3000`).
 - `src/main.tsx` — React app bootstrap.
-- `src/App.tsx` — routes and the top-level `AuthProvider`/`EventsProvider`.
+- `src/App.tsx` — routes, the top-level `AuthProvider`/`EventsProvider`, and the `react-hot-toast` `<Toaster/>`.
 - `src/pages/` — route-level pages: `Home`, `Events`, `EventDetail`, `CreateEvent`, `EditEvent`, `OrganizerDashboard`, `ManageTicketTypes`, `MyTickets`, `Register`, `Login`, `NotFound`.
 - `src/components/` — reusable pieces, grouped by concern:
   - `ui/` — generic primitives (`Button`, `Badge`, `Field` inputs, `Alert`, `Spinner`, `EmptyState`).
   - `layout/` — `Header`, `Footer`, `Layout`.
   - `events/` — event-specific building blocks (`EventCard`, `EventGrid`, `EventFilters`, `EventForm`, `OrganizerEventRow`, `TicketPanel`).
-  - `tickets/` — `TicketRow` (used on the "My tickets" page).
+  - `tickets/` — `TicketRow` and `TicketGroupRow` (several tickets reserved together, paid for as one), used on "My tickets".
+  - `payments/` — `PayPalCheckoutButtons`, wrapping PayPal's Smart Payment Buttons (PayPal account or debit/credit card, in-page, no redirect).
   - `auth/` — `RequireOrganizer`, a route guard for organizer-only pages.
-- `src/context/` + `src/hooks/` — `EventsContext`/`useEvents` (shared event list, since the API has no `GET /events/:id`) and `AuthContext`/`useAuth` (the logged-in user, persisted to `localStorage` — see the backend's known limitations above regarding sessions).
-- `src/api/` — typed fetch wrappers per resource (`events.ts`, `ticketTypes.ts`, `tickets.ts`, `users.ts`), sharing request/error/timeout handling from `client.ts`.
+- `src/context/` + `src/hooks/` — `EventsContext`/`useEvents` (shared event list, since the API has no `GET /events/:id`) and `AuthContext`/`useAuth` (the logged-in user; access/refresh tokens live in `localStorage`, refreshed transparently by `api/client.ts` on a 401).
+- `src/api/` — typed fetch wrappers per resource (`events.ts`, `ticketTypes.ts`, `tickets.ts`, `users.ts`, `payments.ts`), sharing request/error/timeout handling (and the access-token refresh-and-retry logic) from `client.ts`.
 - `src/lib/` — formatting (`format.ts`) and enum-label/role helpers (`enumLabels.ts`, `roles.ts`) shared across pages and components.
 - `src/assets/` — static assets (images, icons) used by the UI.
 - `public/` — static files served as-is (favicon, icon sprite).
+
+Transient feedback (form errors, reserve/pay/publish results) shows as a toast (`react-hot-toast`); persistent page state (data failed to load, "event not found") stays an inline `Alert`.
 
 ### `packages/shared/`
 
@@ -88,7 +103,7 @@ Types and enums shared between the server and client so both sides agree on doma
 bun install
 ```
 
-The server expects a MySQL database; use `scripts/database_table_creation.sql` to create the required schema, and configure connection details via the server's environment variables (see `packages/server/.env`).
+The server expects a MySQL database; use `scripts/database_table_creation.sql` to create the required schema, and configure connection details via the server's environment variables (see `packages/server/.env`). It also needs `JWT_SECRET` (signs access/refresh tokens) and, for payments, `PAYPAL_CLIENT_ID`/`PAYPAL_SECRET`/`PAYPAL_BASE_URL` (defaults to the PayPal sandbox) from a PayPal developer app.
 
 Run the server:
 
