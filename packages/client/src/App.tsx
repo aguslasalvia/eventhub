@@ -12,6 +12,8 @@ import ManageTicketTypes from "./pages/ManageTicketTypes";
 import MyTickets from "./pages/MyTickets";
 import Register from "./pages/Register";
 import Login from "./pages/Login";
+import PaypalSuccess from "./pages/PaypalSuccess";
+import PaypalCancel from "./pages/PaypalCancel";
 import NotFound from "./pages/NotFound";
 
 export default function App() {
@@ -31,6 +33,8 @@ export default function App() {
               <Route path="/my-tickets" element={<MyTickets />} />
               <Route path="/register" element={<Register />} />
               <Route path="/login" element={<Login />} />
+              <Route path="/paypal/success" element={<PaypalSuccess />} />
+              <Route path="/paypal/cancel" element={<PaypalCancel />} />
               <Route path="*" element={<NotFound />} />
             </Route>
           </Routes>

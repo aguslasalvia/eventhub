@@ -5,7 +5,8 @@ import Alert from "../components/ui/Alert";
 import EmptyState from "../components/ui/EmptyState";
 import Button from "../components/ui/Button";
 import TicketRow from "../components/tickets/TicketRow";
-import { fetchMyTickets, confirmTicket } from "../api/tickets";
+import { fetchMyTickets } from "../api/tickets";
+import { createPaypalOrder, getPaypalApprovalLink, setPendingPayment } from "../api/payments";
 import { ApiError } from "../api/client";
 import { useAuth } from "../hooks/useAuth";
 import type { TicketWithContextDto } from "../api/types";
@@ -49,15 +50,18 @@ function MyTicketsContent({ userId }: { userId: number }) {
     load();
   }, [load]);
 
-  async function handleConfirm(ticket: TicketWithContextDto) {
+  async function handlePay(ticket: TicketWithContextDto) {
     setPendingId(ticket.id);
     setActionError(null);
     try {
-      await confirmTicket(ticket.id);
-      load();
+      const order = await createPaypalOrder(ticket.id, window.location.origin);
+      const approvalLink = getPaypalApprovalLink(order);
+      if (!approvalLink) throw new Error("PayPal didn't return an approval link.");
+
+      setPendingPayment({ ticketId: ticket.id, orderId: order.id });
+      window.location.href = approvalLink;
     } catch (err) {
-      setActionError(err instanceof ApiError ? err.message : `Couldn't confirm your ticket for "${ticket.event.title}".`);
-    } finally {
+      setActionError(err instanceof ApiError ? err.message : `Couldn't start payment for "${ticket.event.title}".`);
       setPendingId(null);
     }
   }
@@ -84,7 +88,7 @@ function MyTicketsContent({ userId }: { userId: number }) {
       {!isLoading && !error && tickets.length > 0 && (
         <div className="my-tickets-page__list">
           {tickets.map((ticket) => (
-            <TicketRow key={ticket.id} ticket={ticket} isBusy={pendingId === ticket.id} onConfirm={handleConfirm} />
+            <TicketRow key={ticket.id} ticket={ticket} isBusy={pendingId === ticket.id} onPay={handlePay} />
           ))}
         </div>
       )}

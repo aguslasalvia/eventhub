@@ -84,3 +84,26 @@ export interface LoginPayload {
   email: string,
   password: string
 }
+
+export interface AuthResponseDto {
+  user: {
+    id: number;
+    name: string;
+    email: string;
+    userType: UserType;
+  };
+  token: string;
+}
+
+/** Shape returned by POST /api/payment/paypal/create-order — a PayPal Orders v2 order. */
+export interface PaypalOrderDto {
+  id: string;
+  status: string;
+  links: { href: string; rel: string; method: string }[];
+}
+
+/** Shape returned by POST /api/payment/paypal/capture-order/:orderId. */
+export interface PaypalCaptureDto {
+  ticket: TicketDto;
+  capture: { id: string; status: string };
+}

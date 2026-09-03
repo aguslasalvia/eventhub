@@ -1,5 +1,15 @@
 const API_BASE = "/api";
 const DEFAULT_TIMEOUT_MS = 8000;
+const TOKEN_KEY = "eventhub.token";
+
+export function setAuthToken(token: string | null) {
+  if (token) localStorage.setItem(TOKEN_KEY, token);
+  else localStorage.removeItem(TOKEN_KEY);
+}
+
+export function getAuthToken(): string | null {
+  return localStorage.getItem(TOKEN_KEY);
+}
 
 export class ApiError extends Error {
   status: number;
@@ -26,11 +36,16 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), options.timeoutMs ?? DEFAULT_TIMEOUT_MS);
 
+  const headers: Record<string, string> = {};
+  if (options.body) headers["Content-Type"] = "application/json";
+  const token = getAuthToken();
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
   let res: Response;
   try {
     res = await fetch(`${API_BASE}${path}`, {
       method: options.method ?? "GET",
-      headers: options.body ? { "Content-Type": "application/json" } : undefined,
+      headers: Object.keys(headers).length ? headers : undefined,
       body: options.body ? JSON.stringify(options.body) : undefined,
       signal: controller.signal,
     });

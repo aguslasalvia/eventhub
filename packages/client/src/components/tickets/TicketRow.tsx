@@ -11,10 +11,10 @@ import "./TicketRow.css";
 interface TicketRowProps {
   ticket: TicketWithContextDto;
   isBusy: boolean;
-  onConfirm: (ticket: TicketWithContextDto) => void;
+  onPay: (ticket: TicketWithContextDto) => void;
 }
 
-export default function TicketRow({ ticket, isBusy, onConfirm }: TicketRowProps) {
+export default function TicketRow({ ticket, isBusy, onPay }: TicketRowProps) {
   const isExpired =
     ticket.status === TicketStatus.Reserved &&
     ticket.reservationExpiresAt !== null &&
@@ -55,8 +55,8 @@ export default function TicketRow({ ticket, isBusy, onConfirm }: TicketRowProps)
       </div>
 
       {ticket.status === TicketStatus.Reserved && (
-        <Button variant="primary" onClick={() => onConfirm(ticket)} disabled={isBusy || isExpired}>
-          {isBusy ? "Confirming…" : "Confirm"}
+        <Button variant="primary" onClick={() => onPay(ticket)} disabled={isBusy || isExpired}>
+          {isBusy ? "Redirecting…" : "Pay with PayPal"}
         </Button>
       )}
     </div>

@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { login as loginRequest } from "../api/users";
 import type { UserDto } from "../api/users";
 import { ApiError } from "../api/client";
+import { setAuthToken } from "../api/client";
 import { AuthContext } from "./auth-context";
 
 const STORAGE_KEY = "eventhub.user";
@@ -17,8 +18,8 @@ function readStoredUser(): UserDto | null {
 }
 
 /**
- * Holds the logged-in user client-side. The API has no token/session yet
- * (see auth.middleware.ts), so this just persists what /users/login returns.
+ * Holds the logged-in user client-side and persists the JWT issued by
+ * /users/login (read by api/client.ts on every request).
  */
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<UserDto | null>(readStoredUser);
@@ -29,9 +30,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsAuthenticating(true);
     setError(null);
     try {
-      const loggedInUser = await loginRequest({ email, password });
+      const { user: loggedInUser, token } = await loginRequest({ email, password });
       setUser(loggedInUser);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(loggedInUser));
+      setAuthToken(token);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Couldn't log in. Please try again.");
       throw err;
@@ -43,6 +45,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(() => {
     setUser(null);
     localStorage.removeItem(STORAGE_KEY);
+    setAuthToken(null);
   }, []);
 
   const value = useMemo(
