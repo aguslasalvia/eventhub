@@ -1,0 +1,20 @@
+{
+  // Emits real JS runnable by plain Node (`node dist/server.js`), instead of
+  // the "bundler"/noEmit config in tsconfig.json used for editor typechecking
+  // and Vitest. Uses classic CommonJS resolution — unlike NodeNext, it
+  // resolves extensionless relative imports the same way Node's own
+  // `require()` does, so no source file had to change to add this.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "CommonJS",
+    "noEmit": false,
+    "verbatimModuleSyntax": false,
+    "allowImportingTsExtensions": false,
+    "outDir": "./dist",
+    "rootDir": "."
+  },
+  "include": [
+    "server.ts",
+    "src/**/*.ts"
+  ]
+}

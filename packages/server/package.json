@@ -2,13 +2,20 @@
   "name": "server",
   "module": "index.ts",
   "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json && tsc-alias -p tsconfig.build.json && echo '{\"type\":\"commonjs\"}' > dist/package.json",
+    "start:node": "node dist/server.js",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
   "devDependencies": {
     "@types/bcryptjs": "^3.0.0",
-    "@types/bun": "latest",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/jsonwebtoken": "^9.0.10",
-    "bun-types": "^1.4.0"
+    "@types/node": "^24.13.3",
+    "tsc-alias": "^1.8.16",
+    "vitest": "^3.2.4"
   },
   "peerDependencies": {
     "typescript": "^7.0.2"
