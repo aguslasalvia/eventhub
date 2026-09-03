@@ -1,10 +1,10 @@
-import TicketService from "@services/ticket.services";
+import TicketService, { MAX_RESERVE_QUANTITY } from "@services/ticket.services";
 import type { Request, Response } from "express";
 import { foundResponse } from "@utils/find-reponse";
 
 export default class TicketController {
   static async reserve(req: Request, res: Response): Promise<Response> {
-    const { ticketTypeId, userId } = req.body;
+    const { ticketTypeId, userId, quantity = 1 } = req.body;
 
     if (!ticketTypeId || isNaN(Number(ticketTypeId))) {
       return res.status(400).json({ error: "ticketTypeId must be numeric" });
@@ -12,9 +12,12 @@ export default class TicketController {
     if (!userId || isNaN(Number(userId))) {
       return res.status(400).json({ error: "userId must be numeric" });
     }
+    if (!Number.isInteger(Number(quantity)) || Number(quantity) < 1 || Number(quantity) > MAX_RESERVE_QUANTITY) {
+      return res.status(400).json({ error: `quantity must be an integer between 1 and ${MAX_RESERVE_QUANTITY}` });
+    }
     try {
-      const ticket = await TicketService.reserve(Number(ticketTypeId), Number(userId));
-      return res.status(201).json(ticket);
+      const tickets = await TicketService.reserve(Number(ticketTypeId), Number(userId), Number(quantity));
+      return res.status(201).json(tickets);
     } catch (err) {
       return res.status(400).json({ error: (err as Error).message })
     }

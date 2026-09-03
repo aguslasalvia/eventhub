@@ -3,49 +3,63 @@ import Ticket from "@core/entities/ticket"
 import { pool } from "../db/database"
 import { randomUUID } from "crypto"
 
+/** Highest quantity a single reservation call can request at once. */
+export const MAX_RESERVE_QUANTITY = 10;
+
 export default class TicketService {
 
   /**
- * Reserves a ticket for a user under the given ticket type, applying a
- * temporary 10-minute hold (RF-03.4) before it needs to be confirmed.
+ * Reserves `quantity` tickets for a user under the given ticket type in one
+ * go, each applying a temporary 10-minute hold (RF-03.4) before it needs to
+ * be confirmed.
  *
- * Uses a transaction with an atomic UPDATE (`WHERE availableCapacity > 0`)
- * so that concurrent reservations for the last available ticket can't both
+ * Uses a transaction with an atomic UPDATE (`WHERE availableCapacity >= quantity`)
+ * so that concurrent reservations racing for the last available tickets can't both
  * succeed (RF-03.5) — MySQL serializes the row update, no manual locking needed.
+ * All `quantity` tickets are inserted in a single bulk INSERT, so their ids
+ * are guaranteed consecutive (MySQL/InnoDB auto-increment behavior for a
+ * single statement) — no need for a round trip per ticket.
  *
  * @param ticketTypeId -> the TicketType being reserved from
  * @param userId -> the user making the reservation
- * @returns the newly created Ticket, in Reserved status
- * @throws {Error} if there's no available capacity for the given ticket type
+ * @param quantity -> how many tickets to reserve at once (1..MAX_RESERVE_QUANTITY)
+ * @returns the newly created Tickets, in Reserved status
+ * @throws {Error} if there isn't enough available capacity for the given ticket type
  */
-  static async reserve(ticketTypeId: number, userId: number): Promise<Ticket> {
+  static async reserve(ticketTypeId: number, userId: number, quantity: number = 1): Promise<Ticket[]> {
     const conn = await pool.getConnection();
 
     try {
       await conn.beginTransaction();
 
       const [result] = await conn.execute(
-        "UPDATE ticket_types SET availableCapacity = availableCapacity - 1 WHERE id = ? AND availableCapacity > 0",
-        [ticketTypeId]
+        "UPDATE ticket_types SET availableCapacity = availableCapacity - ? WHERE id = ? AND availableCapacity >= ?",
+        [quantity, ticketTypeId, quantity]
       );
 
       if ((result as any).affectedRows === 0) {
-        await conn.rollback();
-        throw new Error("No tickets available for this type")
+        // The outer catch below rolls back and releases the connection.
+        throw new Error("Not enough tickets available for this type")
       }
 
       const reservationExpiresAt = new Date(Date.now() + 10 * 60 * 1000);
 
-      const [insert] = await conn.execute(
-        `INSERT INTO tickets (ticketTypeId, userId, status, reservationExpiresAt)
-        VALUES (?, ?, ?, ?)`,
-        [ticketTypeId, userId, TicketStatus.Reserved, reservationExpiresAt],
+      const rows = Array.from({ length: quantity }, () => [
+        ticketTypeId, userId, TicketStatus.Reserved, reservationExpiresAt,
+      ]);
+
+      const [insert] = await conn.query(
+        `INSERT INTO tickets (ticketTypeId, userId, status, reservationExpiresAt) VALUES ?`,
+        [rows],
       );
 
       await conn.commit();
 
-      const insertId = (insert as any).insertId;
-      return new Ticket(insertId, ticketTypeId, userId, null, TicketStatus.Reserved, null, reservationExpiresAt);
+      const firstId = (insert as any).insertId;
+      return Array.from(
+        { length: quantity },
+        (_, i) => new Ticket(firstId + i, ticketTypeId, userId, null, TicketStatus.Reserved, null, reservationExpiresAt),
+      );
     }
     catch (err) {
       await conn.rollback();
