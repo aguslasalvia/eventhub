@@ -100,7 +100,6 @@ export interface AuthResponseDto {
 export interface PaypalOrderDto {
   id: string;
   status: string;
-  links: { href: string; rel: string; method: string }[];
 }
 
 /** Shape returned by POST /api/payment/paypal/capture-order/:orderId. */

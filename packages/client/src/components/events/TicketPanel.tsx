@@ -7,16 +7,15 @@ import { EventState } from "@eventhub/shared";
 import type { EventDto, TicketDto, TicketTypeDto } from "../../api/types";
 import { fetchTicketTypesByEvent } from "../../api/ticketTypes";
 import { reserveTicket } from "../../api/tickets";
-import { createPaypalOrder, getPaypalApprovalLink, setPendingPayment } from "../../api/payments";
 import { ApiError } from "../../api/client";
 import { useAuth } from "../../hooks/useAuth";
 import { isOrganizer } from "../../lib/roles";
-import { redirectTo } from "../../lib/navigation";
 import { ticketCategoryLabel } from "../../lib/enumLabels";
 import { formatEventDateTime, formatPrice } from "../../lib/format";
 import Spinner from "../ui/Spinner";
 import Alert from "../ui/Alert";
 import Button from "../ui/Button";
+import PayPalCheckoutButtons from "../payments/PayPalCheckoutButtons";
 import "./TicketPanel.css";
 
 function PanelShell({
@@ -57,7 +56,7 @@ export default function TicketPanel({ event }: { event: EventDto }) {
   const [quantities, setQuantities] = useState<Record<number, number>>({});
   const [reservingId, setReservingId] = useState<number | null>(null);
   const [reservedTickets, setReservedTickets] = useState<TicketDto[] | null>(null);
-  const [isPaying, setIsPaying] = useState(false);
+  const [paidTickets, setPaidTickets] = useState<TicketDto[] | null>(null);
 
   useEffect(() => {
     if (!isPublished) return;
@@ -97,23 +96,6 @@ export default function TicketPanel({ event }: { event: EventDto }) {
     }
   }
 
-  async function handlePayNow() {
-    if (!reservedTickets || reservedTickets.length === 0) return;
-    setIsPaying(true);
-    try {
-      const ticketIds = reservedTickets.map((t) => t.id);
-      const order = await createPaypalOrder(ticketIds, window.location.origin);
-      const approvalLink = getPaypalApprovalLink(order);
-      if (!approvalLink) throw new Error("PayPal didn't return an approval link.");
-
-      setPendingPayment({ ticketIds, orderId: order.id });
-      redirectTo(approvalLink);
-    } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Couldn't start payment.");
-      setIsPaying(false);
-    }
-  }
-
   if (!isPublished) {
     return (
       <PanelShell icon={CalendarOff} muted title="Tickets">
@@ -141,6 +123,18 @@ export default function TicketPanel({ event }: { event: EventDto }) {
     );
   }
 
+  if (paidTickets) {
+    const count = paidTickets.length;
+    return (
+      <PanelShell icon={CircleCheck} title="Paid!">
+        <p>{count === 1 ? "Your ticket is confirmed." : `Your ${count} tickets are confirmed.`} See you at the event!</p>
+        <Button to="/my-tickets" variant="primary" fullWidth className="ticket-panel__cta">
+          Go to my tickets
+        </Button>
+      </PanelShell>
+    );
+  }
+
   if (reservedTickets) {
     const [firstTicket] = reservedTickets;
     const count = reservedTickets.length;
@@ -151,9 +145,10 @@ export default function TicketPanel({ event }: { event: EventDto }) {
           <strong>{formatEventDateTime(firstTicket?.reservationExpiresAt ?? null)}</strong> —{" "}
           {count === 1 ? "confirm it" : "confirm them"} before then.
         </p>
-        <Button variant="primary" fullWidth className="ticket-panel__cta" onClick={handlePayNow} disabled={isPaying}>
-          {isPaying ? "Redirecting…" : count === 1 ? "Pay with PayPal" : `Pay ${count} with PayPal`}
-        </Button>
+        <PayPalCheckoutButtons
+          ticketIds={reservedTickets.map((t) => t.id)}
+          onSuccess={setPaidTickets}
+        />
         <Button to="/my-tickets" variant="ghost" fullWidth className="ticket-panel__cta">
           Pay later from my tickets
         </Button>

@@ -61,3 +61,8 @@
   color: var(--color-text-faint);
   font-family: monospace;
 }
+
+.ticket-row__pay {
+  width: 100%;
+  max-width: 260px;
+}

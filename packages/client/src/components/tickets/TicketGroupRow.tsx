@@ -3,23 +3,22 @@ import { Calendar, MapPin } from "lucide-react";
 import { TicketStatus } from "@eventhub/shared";
 import type { TicketWithContextDto } from "../../api/types";
 import Badge from "../ui/Badge";
-import Button from "../ui/Button";
+import PayPalCheckoutButtons from "../payments/PayPalCheckoutButtons";
 import { ticketCategoryLabel, ticketStatusLabel, ticketStatusTone } from "../../lib/enumLabels";
 import { formatEventDate, formatEventDateTime, formatLocation, formatPrice } from "../../lib/format";
 import "./TicketRow.css";
 
 interface TicketGroupRowProps {
   tickets: TicketWithContextDto[];
-  isBusy: boolean;
-  onPay: (tickets: TicketWithContextDto[]) => void;
+  onPaid: () => void;
 }
 
 /**
  * Same layout as TicketRow, but for several still-Reserved tickets of the
  * same type held under the same reservation — paid for with one PayPal
- * order instead of one redirect per ticket.
+ * order instead of one per ticket.
  */
-export default function TicketGroupRow({ tickets, isBusy, onPay }: TicketGroupRowProps) {
+export default function TicketGroupRow({ tickets, onPaid }: TicketGroupRowProps) {
   const [first] = tickets;
   if (!first) return null;
 
@@ -55,9 +54,11 @@ export default function TicketGroupRow({ tickets, isBusy, onPay }: TicketGroupRo
         </p>
       </div>
 
-      <Button variant="primary" onClick={() => onPay(tickets)} disabled={isBusy || isExpired}>
-        {isBusy ? "Redirecting…" : `Pay ${tickets.length} with PayPal`}
-      </Button>
+      {!isExpired && (
+        <div className="ticket-row__pay">
+          <PayPalCheckoutButtons ticketIds={tickets.map((t) => t.id)} onSuccess={onPaid} />
+        </div>
+      )}
     </div>
   );
 }

@@ -9,9 +9,7 @@ import Button from "../components/ui/Button";
 import TicketRow from "../components/tickets/TicketRow";
 import TicketGroupRow from "../components/tickets/TicketGroupRow";
 import { fetchMyTickets } from "../api/tickets";
-import { createPaypalOrder, getPaypalApprovalLink, setPendingPayment } from "../api/payments";
 import { ApiError } from "../api/client";
-import { redirectTo } from "../lib/navigation";
 import { useAuth } from "../hooks/useAuth";
 import type { TicketWithContextDto } from "../api/types";
 import "./MyTickets.css";
@@ -45,7 +43,6 @@ function MyTicketsContent({ userId }: { userId: number }) {
   const [tickets, setTickets] = useState<TicketWithContextDto[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [pendingKey, setPendingKey] = useState<string | null>(null);
 
   const load = useCallback(() => {
     fetchMyTickets(userId)
@@ -57,6 +54,11 @@ function MyTicketsContent({ userId }: { userId: number }) {
   useEffect(() => {
     load();
   }, [load]);
+
+  function handlePaid() {
+    toast.success("Payment confirmed!");
+    load();
+  }
 
   // Reserved tickets from the same batch (same type, same hold timestamp)
   // collapse into one row that pays for all of them at once; everything
@@ -86,23 +88,6 @@ function MyTicketsContent({ userId }: { userId: number }) {
     return result;
   }, [tickets]);
 
-  async function payFor(key: string, batch: TicketWithContextDto[]) {
-    setPendingKey(key);
-    try {
-      const ticketIds = batch.map((t) => t.id);
-      const order = await createPaypalOrder(ticketIds, window.location.origin);
-      const approvalLink = getPaypalApprovalLink(order);
-      if (!approvalLink) throw new Error("PayPal didn't return an approval link.");
-
-      setPendingPayment({ ticketIds, orderId: order.id });
-      redirectTo(approvalLink);
-    } catch (err) {
-      const label = batch.length === 1 ? `"${batch[0]!.event.title}"` : `these ${batch.length} tickets`;
-      toast.error(err instanceof ApiError ? err.message : `Couldn't start payment for ${label}.`);
-      setPendingKey(null);
-    }
-  }
-
   return (
     <section className="container section my-tickets-page">
       <header className="my-tickets-page__heading">
@@ -125,19 +110,9 @@ function MyTicketsContent({ userId }: { userId: number }) {
         <div className="my-tickets-page__list">
           {rows.map(({ key, tickets: batch }) =>
             batch.length > 1 ? (
-              <TicketGroupRow
-                key={key}
-                tickets={batch}
-                isBusy={pendingKey === key}
-                onPay={(group) => payFor(key, group)}
-              />
+              <TicketGroupRow key={key} tickets={batch} onPaid={handlePaid} />
             ) : (
-              <TicketRow
-                key={key}
-                ticket={batch[0]!}
-                isBusy={pendingKey === key}
-                onPay={(ticket) => payFor(key, [ticket])}
-              />
+              <TicketRow key={key} ticket={batch[0]!} onPaid={handlePaid} />
             ),
           )}
         </div>

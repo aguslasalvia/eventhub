@@ -3,18 +3,17 @@ import { Calendar, MapPin } from "lucide-react";
 import { TicketStatus } from "@eventhub/shared";
 import type { TicketWithContextDto } from "../../api/types";
 import Badge from "../ui/Badge";
-import Button from "../ui/Button";
+import PayPalCheckoutButtons from "../payments/PayPalCheckoutButtons";
 import { ticketCategoryLabel, ticketStatusLabel, ticketStatusTone } from "../../lib/enumLabels";
 import { formatEventDate, formatEventDateTime, formatLocation, formatPrice } from "../../lib/format";
 import "./TicketRow.css";
 
 interface TicketRowProps {
   ticket: TicketWithContextDto;
-  isBusy: boolean;
-  onPay: (ticket: TicketWithContextDto) => void;
+  onPaid: () => void;
 }
 
-export default function TicketRow({ ticket, isBusy, onPay }: TicketRowProps) {
+export default function TicketRow({ ticket, onPaid }: TicketRowProps) {
   const isExpired =
     ticket.status === TicketStatus.Reserved &&
     ticket.reservationExpiresAt !== null &&
@@ -54,10 +53,10 @@ export default function TicketRow({ ticket, isBusy, onPay }: TicketRowProps) {
         )}
       </div>
 
-      {ticket.status === TicketStatus.Reserved && (
-        <Button variant="primary" onClick={() => onPay(ticket)} disabled={isBusy || isExpired}>
-          {isBusy ? "Redirecting…" : "Pay with PayPal"}
-        </Button>
+      {ticket.status === TicketStatus.Reserved && !isExpired && (
+        <div className="ticket-row__pay">
+          <PayPalCheckoutButtons ticketIds={[ticket.id]} onSuccess={onPaid} />
+        </div>
       )}
     </div>
   );
