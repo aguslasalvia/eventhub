@@ -22,6 +22,7 @@ export default function PaypalSuccess() {
   const orderId = searchParams.get("token");
   const pending = getPendingPayment();
   const isValid = Boolean(orderId && pending && pending.orderId === orderId);
+  const ticketCount = pending?.ticketIds.length ?? 1;
 
   const [status, setStatus] = useState<Status>(isValid ? "capturing" : "error");
   const [error, setError] = useState<string | null>(isValid ? null : MISMATCH_ERROR);
@@ -29,7 +30,7 @@ export default function PaypalSuccess() {
   useEffect(() => {
     if (!isValid || !orderId || !pending) return;
 
-    capturePaypalOrder(orderId, pending.ticketId)
+    capturePaypalOrder(orderId, pending.ticketIds)
       .then(() => {
         clearPendingPayment();
         setStatus("success");
@@ -59,7 +60,11 @@ export default function PaypalSuccess() {
               <CircleCheck size={20} />
             </div>
             <h1>Payment confirmed</h1>
-            <Alert tone="success">Your ticket is now confirmed. See you at the event!</Alert>
+            <Alert tone="success">
+              {ticketCount === 1
+                ? "Your ticket is now confirmed. See you at the event!"
+                : `Your ${ticketCount} tickets are now confirmed. See you at the event!`}
+            </Alert>
             <Button to="/my-tickets" variant="primary" fullWidth className="auth-card__cta">
               Go to my tickets
             </Button>

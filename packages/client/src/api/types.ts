@@ -105,6 +105,6 @@ export interface PaypalOrderDto {
 
 /** Shape returned by POST /api/payment/paypal/capture-order/:orderId. */
 export interface PaypalCaptureDto {
-  ticket: TicketDto;
+  tickets: TicketDto[];
   capture: { id: string; status: string };
 }

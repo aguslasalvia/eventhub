@@ -2,13 +2,16 @@ import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { Link } from "react-router";
 import { CalendarOff, CircleCheck, Minus, Plus, Ticket, TicketX } from "lucide-react";
+import toast from "react-hot-toast";
 import { EventState } from "@eventhub/shared";
 import type { EventDto, TicketDto, TicketTypeDto } from "../../api/types";
 import { fetchTicketTypesByEvent } from "../../api/ticketTypes";
 import { reserveTicket } from "../../api/tickets";
+import { createPaypalOrder, getPaypalApprovalLink, setPendingPayment } from "../../api/payments";
 import { ApiError } from "../../api/client";
 import { useAuth } from "../../hooks/useAuth";
 import { isOrganizer } from "../../lib/roles";
+import { redirectTo } from "../../lib/navigation";
 import { ticketCategoryLabel } from "../../lib/enumLabels";
 import { formatEventDateTime, formatPrice } from "../../lib/format";
 import Spinner from "../ui/Spinner";
@@ -53,8 +56,8 @@ export default function TicketPanel({ event }: { event: EventDto }) {
   const [error, setError] = useState<string | null>(null);
   const [quantities, setQuantities] = useState<Record<number, number>>({});
   const [reservingId, setReservingId] = useState<number | null>(null);
-  const [reserveError, setReserveError] = useState<string | null>(null);
   const [reservedTickets, setReservedTickets] = useState<TicketDto[] | null>(null);
+  const [isPaying, setIsPaying] = useState(false);
 
   useEffect(() => {
     if (!isPublished) return;
@@ -81,7 +84,6 @@ export default function TicketPanel({ event }: { event: EventDto }) {
     if (!user) return;
     const quantity = getQuantity(ticketType);
     setReservingId(ticketType.id);
-    setReserveError(null);
     try {
       const tickets = await reserveTicket(ticketType.id, user.id, quantity);
       setReservedTickets(tickets);
@@ -89,9 +91,26 @@ export default function TicketPanel({ event }: { event: EventDto }) {
         prev.map((t) => (t.id === ticketType.id ? { ...t, availableCapacity: t.availableCapacity - quantity } : t)),
       );
     } catch (err) {
-      setReserveError(err instanceof ApiError ? err.message : "Couldn't reserve these tickets.");
+      toast.error(err instanceof ApiError ? err.message : "Couldn't reserve these tickets.");
     } finally {
       setReservingId(null);
+    }
+  }
+
+  async function handlePayNow() {
+    if (!reservedTickets || reservedTickets.length === 0) return;
+    setIsPaying(true);
+    try {
+      const ticketIds = reservedTickets.map((t) => t.id);
+      const order = await createPaypalOrder(ticketIds, window.location.origin);
+      const approvalLink = getPaypalApprovalLink(order);
+      if (!approvalLink) throw new Error("PayPal didn't return an approval link.");
+
+      setPendingPayment({ ticketIds, orderId: order.id });
+      redirectTo(approvalLink);
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Couldn't start payment.");
+      setIsPaying(false);
     }
   }
 
@@ -132,8 +151,11 @@ export default function TicketPanel({ event }: { event: EventDto }) {
           <strong>{formatEventDateTime(firstTicket?.reservationExpiresAt ?? null)}</strong> —{" "}
           {count === 1 ? "confirm it" : "confirm them"} before then.
         </p>
-        <Button to="/my-tickets" variant="primary" fullWidth className="ticket-panel__cta">
-          Go to my tickets
+        <Button variant="primary" fullWidth className="ticket-panel__cta" onClick={handlePayNow} disabled={isPaying}>
+          {isPaying ? "Redirecting…" : count === 1 ? "Pay with PayPal" : `Pay ${count} with PayPal`}
+        </Button>
+        <Button to="/my-tickets" variant="ghost" fullWidth className="ticket-panel__cta">
+          Pay later from my tickets
         </Button>
       </PanelShell>
     );
@@ -200,8 +222,6 @@ export default function TicketPanel({ event }: { event: EventDto }) {
           })}
         </ul>
       )}
-
-      {reserveError && <Alert tone="danger">{reserveError}</Alert>}
 
       <Link to="/my-tickets" className="ticket-panel__link">
         View my tickets

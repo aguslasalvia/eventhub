@@ -1,13 +1,17 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Ticket as TicketIcon } from "lucide-react";
+import toast from "react-hot-toast";
+import { TicketStatus } from "@eventhub/shared";
 import Spinner from "../components/ui/Spinner";
 import Alert from "../components/ui/Alert";
 import EmptyState from "../components/ui/EmptyState";
 import Button from "../components/ui/Button";
 import TicketRow from "../components/tickets/TicketRow";
+import TicketGroupRow from "../components/tickets/TicketGroupRow";
 import { fetchMyTickets } from "../api/tickets";
 import { createPaypalOrder, getPaypalApprovalLink, setPendingPayment } from "../api/payments";
 import { ApiError } from "../api/client";
+import { redirectTo } from "../lib/navigation";
 import { useAuth } from "../hooks/useAuth";
 import type { TicketWithContextDto } from "../api/types";
 import "./MyTickets.css";
@@ -32,12 +36,16 @@ export default function MyTickets() {
   return <MyTicketsContent userId={user.id} />;
 }
 
+/** Tickets reserved together (same type, same call) share this exact hold timestamp. */
+function groupKey(ticket: TicketWithContextDto): string {
+  return `${ticket.ticketType.id}::${ticket.reservationExpiresAt}`;
+}
+
 function MyTicketsContent({ userId }: { userId: number }) {
   const [tickets, setTickets] = useState<TicketWithContextDto[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [pendingId, setPendingId] = useState<number | null>(null);
-  const [actionError, setActionError] = useState<string | null>(null);
+  const [pendingKey, setPendingKey] = useState<string | null>(null);
 
   const load = useCallback(() => {
     fetchMyTickets(userId)
@@ -50,19 +58,48 @@ function MyTicketsContent({ userId }: { userId: number }) {
     load();
   }, [load]);
 
-  async function handlePay(ticket: TicketWithContextDto) {
-    setPendingId(ticket.id);
-    setActionError(null);
+  // Reserved tickets from the same batch (same type, same hold timestamp)
+  // collapse into one row that pays for all of them at once; everything
+  // else (confirmed/cancelled, or a lone reservation) stays one row each.
+  const rows = useMemo(() => {
+    const reservedGroups = new Map<string, TicketWithContextDto[]>();
+    for (const ticket of tickets) {
+      if (ticket.status !== TicketStatus.Reserved) continue;
+      const key = groupKey(ticket);
+      const group = reservedGroups.get(key);
+      if (group) group.push(ticket);
+      else reservedGroups.set(key, [ticket]);
+    }
+
+    const seen = new Set<string>();
+    const result: { key: string; tickets: TicketWithContextDto[] }[] = [];
+    for (const ticket of tickets) {
+      if (ticket.status !== TicketStatus.Reserved) {
+        result.push({ key: `single:${ticket.id}`, tickets: [ticket] });
+        continue;
+      }
+      const key = groupKey(ticket);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      result.push({ key, tickets: reservedGroups.get(key) ?? [ticket] });
+    }
+    return result;
+  }, [tickets]);
+
+  async function payFor(key: string, batch: TicketWithContextDto[]) {
+    setPendingKey(key);
     try {
-      const order = await createPaypalOrder(ticket.id, window.location.origin);
+      const ticketIds = batch.map((t) => t.id);
+      const order = await createPaypalOrder(ticketIds, window.location.origin);
       const approvalLink = getPaypalApprovalLink(order);
       if (!approvalLink) throw new Error("PayPal didn't return an approval link.");
 
-      setPendingPayment({ ticketId: ticket.id, orderId: order.id });
-      window.location.href = approvalLink;
+      setPendingPayment({ ticketIds, orderId: order.id });
+      redirectTo(approvalLink);
     } catch (err) {
-      setActionError(err instanceof ApiError ? err.message : `Couldn't start payment for "${ticket.event.title}".`);
-      setPendingId(null);
+      const label = batch.length === 1 ? `"${batch[0]!.event.title}"` : `these ${batch.length} tickets`;
+      toast.error(err instanceof ApiError ? err.message : `Couldn't start payment for ${label}.`);
+      setPendingKey(null);
     }
   }
 
@@ -75,7 +112,6 @@ function MyTicketsContent({ userId }: { userId: number }) {
 
       {isLoading && <Spinner label="Loading your tickets…" />}
       {!isLoading && error && <Alert tone="danger">{error}</Alert>}
-      {actionError && <Alert tone="danger">{actionError}</Alert>}
 
       {!isLoading && !error && tickets.length === 0 && (
         <EmptyState
@@ -85,11 +121,25 @@ function MyTicketsContent({ userId }: { userId: number }) {
         />
       )}
 
-      {!isLoading && !error && tickets.length > 0 && (
+      {!isLoading && !error && rows.length > 0 && (
         <div className="my-tickets-page__list">
-          {tickets.map((ticket) => (
-            <TicketRow key={ticket.id} ticket={ticket} isBusy={pendingId === ticket.id} onPay={handlePay} />
-          ))}
+          {rows.map(({ key, tickets: batch }) =>
+            batch.length > 1 ? (
+              <TicketGroupRow
+                key={key}
+                tickets={batch}
+                isBusy={pendingKey === key}
+                onPay={(group) => payFor(key, group)}
+              />
+            ) : (
+              <TicketRow
+                key={key}
+                ticket={batch[0]!}
+                isBusy={pendingKey === key}
+                onPay={(ticket) => payFor(key, [ticket])}
+              />
+            ),
+          )}
         </div>
       )}
     </section>
