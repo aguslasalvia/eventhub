@@ -9,6 +9,8 @@ const router = Router();
 router
   .post("/", UserController.create) // Create user
   .post("/login", UserController.authenticate)
+  .post("/refresh-token", UserController.refresh)
+  .post("/logout", UserController.logout)
   .get("/:id", authMiddleware, UserController.findById) // get user by ID
 
 
