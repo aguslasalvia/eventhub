@@ -1,4 +1,4 @@
-import TicketTypeService from "@services/ticketType.services";
+import TicketTypeService from "src/services/ticket-type.services";
 import type { Request, Response } from "express";
 import { foundResponse } from "@utils/find-reponse";
 

@@ -4,7 +4,7 @@ import { TicketStatus } from "@eventhub/shared";
 import Ticket from "@core/entities/ticket";
 import TicketType from "@core/entities/ticketType";
 import TicketService, { MAX_RESERVE_QUANTITY } from "@services/ticket.services";
-import TicketTypeService from "@services/ticketType.services";
+import TicketTypeService from "src/services/ticket-type.services";
 import EventService from "@services/event.services";
 import PaymentService from "@services/payment.services";
 
