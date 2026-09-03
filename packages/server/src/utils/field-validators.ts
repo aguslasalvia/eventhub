@@ -1,28 +1,20 @@
 /**
- * 
- * @param fields 
+ *
+ * @param fields
  * @returns {boolean} -> if there is no problem, returns true
  */
 
 export const stringFieldValidator = (fields: string[]): boolean => {
-  fields.forEach(f => {
-    if (f === "")
-      return false
-  })
-  return true
+  return fields.every(f => f !== "" && f !== undefined && f !== null);
 }
 
 
 /**
- * 
- * @param fields 
+ *
+ * @param fields
  * @returns {boolean} -> if there is no problem, returns true
  */
 
-export const numberFieldValidator = (fields: string[]): boolean => {
-  fields.forEach(f => {
-    if (isNaN(Number(f)))
-      return false
-  })
-  return true
+export const numberFieldValidator = (fields: unknown[]): boolean => {
+  return fields.every(f => !isNaN(Number(f)));
 }

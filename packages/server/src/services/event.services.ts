@@ -140,7 +140,7 @@ export default class EventService {
       throw new Error("Event Not Found")
 
     if (event.Status !== EventState.Cancelled && event.Status !== EventState.Draft)
-      throw new Error("The Event needs to be canceled before ")
+      throw new Error("The Event needs to be canceled before it can be deleted")
 
     await pool.execute("DELETE FROM events WHERE id = ?;", [id])
 

@@ -110,7 +110,7 @@ export default class EventController {
     }
 
     try {
-      await EventService.cancel(Number(id));
+      await EventService.delete(Number(id));
       return res.status(204).send();
     } catch (err) {
       return res.status(400).json({ error: (err as Error).message });
@@ -133,7 +133,7 @@ export default class EventController {
       return res.status(404).json("Not Found")
 
     } catch (err) {
-      return res.status(500);
+      return res.status(500).json({ error: (err as Error).message });
     }
   }
 }

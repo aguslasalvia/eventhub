@@ -7,7 +7,7 @@ const router = Router();
 
 router
   .post("/", authMiddleware, EventController.create)
-  .get("/", authMiddleware, EventController.findAll)
+  .get("/", EventController.findAll)
   .get("/organizer/:organizerId", authMiddleware, EventController.findByOrganizer)
   .put("/:id", authMiddleware, EventController.update)
   .post("/:id/publish", authMiddleware, EventController.publish)

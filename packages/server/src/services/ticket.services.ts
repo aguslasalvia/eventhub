@@ -22,7 +22,7 @@ export default class TicketService {
     const conn = await pool.getConnection();
 
     try {
-
+      await conn.beginTransaction();
 
       const [result] = await conn.execute(
         "UPDATE ticket_types SET availableCapacity = availableCapacity - 1 WHERE id = ? AND availableCapacity > 0",
@@ -123,7 +123,7 @@ export default class TicketService {
    * @returns 
    */
   static async findByTicketType(ticketTypeId: number): Promise<Ticket[]> {
-    const [rows] = await pool.execute("SELECT * FROM tickets WHERE ticket_type = ?;", [ticketTypeId]);
+    const [rows] = await pool.execute("SELECT * FROM tickets WHERE ticketTypeId = ?;", [ticketTypeId]);
     return (rows as any[]).map(t => Ticket.fromRow(t))
   }
 

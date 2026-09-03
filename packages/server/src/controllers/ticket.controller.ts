@@ -9,7 +9,7 @@ export default class TicketController {
     if (!ticketTypeId || isNaN(Number(ticketTypeId))) {
       return res.status(400).json({ error: "ticketTypeId must be numeric" });
     }
-    if (!ticketTypeId || isNaN(Number(userId))) {
+    if (!userId || isNaN(Number(userId))) {
       return res.status(400).json({ error: "userId must be numeric" });
     }
     try {

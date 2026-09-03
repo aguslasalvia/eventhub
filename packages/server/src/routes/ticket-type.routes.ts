@@ -6,7 +6,7 @@ const router = Router();
 
 router
   .post("/", authMiddleware, TicketTypeController.create)
-  .get("/event/:eventId", authMiddleware, TicketTypeController.findByEvent)
-  .get("/:id", authMiddleware, TicketTypeController.findById)
+  .get("/event/:eventId", TicketTypeController.findByEvent)
+  .get("/:id", TicketTypeController.findById)
 
 export default router;

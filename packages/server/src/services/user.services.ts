@@ -36,11 +36,17 @@ export default class UserService {
       throw new Error("Invalid Credentials");
 
     const user = User.fromRow(row);
-    const passwordOk = bcrypt.compare(password, user.Password);
+    const passwordOk = await bcrypt.compare(password, user.Password);
 
     if (!passwordOk)
       throw new Error("Invalid Credentials");
 
     return user;
+  }
+
+  static async findById(id: number): Promise<User | null> {
+    const [rows] = await pool.execute("SELECT * FROM users WHERE id = ?;", [id]);
+    const row = (rows as any[])[0];
+    return row ? User.fromRow(row) : null;
   }
 }
